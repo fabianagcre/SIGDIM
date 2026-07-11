@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 import {
   LayoutDashboard, FileText, Users, Settings, LogOut,
   Bell, Search, ChevronRight, ChevronDown, Eye, Plus,
@@ -95,20 +97,60 @@ function PrioridadDot({ prioridad }: { prioridad: "alta" | "media" | "baja" }) {
 
 // ─── System brand ──────────────────────────────────────────────────────────
 
-function SystemLogo({ size = "md", light = false }: { size?: "sm" | "md" | "lg"; light?: boolean }) {
-  const sizes = { sm: { icon: 16, title: "text-sm", sub: "text-[10px]", box: "w-7 h-7" }, md: { icon: 20, title: "text-base", sub: "text-xs", box: "w-9 h-9" }, lg: { icon: 26, title: "text-xl", sub: "text-sm", box: "w-12 h-12" } };
-  const s = sizes[size];
+function SystemLogo({ size = "md" }: { size?: "sm" | "md" | "lg"; light?: boolean }) {
+  const sizes = { sm: "h-11", md: "h-16", lg: "h-24" };
   return (
-    <div className="flex items-center gap-3">
-      <div className={`${s.box} rounded-xl flex items-center justify-center flex-shrink-0`} style={{ background: light ? "rgba(255,255,255,0.15)" : "#1A3A6C" }}>
-        <Shield size={s.icon} color="white" />
-      </div>
-      <div>
-        <div className={`font-extrabold leading-tight ${s.title}`} style={{ color: light ? "white" : "#0F1F3D" }}>SIDDIM</div>
-        <div className={`font-medium leading-tight ${s.sub}`} style={{ color: light ? "rgba(255,255,255,0.65)" : "#5A6E8C" }}>Sist. de Debida Diligencia Migratoria</div>
-      </div>
+    <div className="inline-flex items-center rounded-xl bg-white px-2 py-1.5 shadow-sm" aria-label="SIGDIM">
+      <img src="/logoSIGDIM.png" alt="SIGDIM — Sistema Integrado de Gestión de Debida Diligencia Migratoria" className={`${sizes[size]} w-auto object-contain`} />
     </div>
   );
+}
+
+async function descargarExpedientePdf(exp: Expediente) {
+  const pdf = new jsPDF();
+  pdf.setFillColor(26, 58, 108);
+  pdf.rect(0, 0, 210, 36, "F");
+  const logo = await fetch("/logoSIGDIM.png").then((response) => response.blob()).then((blob) => new Promise<string>((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.readAsDataURL(blob);
+  }));
+  pdf.addImage(logo, "PNG", 12, 4, 24, 27);
+  pdf.setTextColor(255, 255, 255);
+  pdf.setFontSize(11);
+  pdf.text("República de Panamá — Servicio Nacional de Migración", 42, 15);
+  pdf.setFontSize(8);
+  pdf.text(`Generado: ${new Date().toLocaleDateString("es-PA")}`, 42, 23);
+  pdf.setTextColor(15, 31, 61);
+  pdf.setFontSize(15);
+  pdf.text(`Expediente ${exp.numero}`, 14, 48);
+  pdf.setFontSize(10);
+  pdf.text(`Estado actual: ${estadoConfig[exp.estado].label}`, 14, 55);
+  autoTable(pdf, {
+    startY: 62,
+    head: [["Datos del cliente", "Información"]],
+    body: [["Nombre", exp.cliente], ["Pasaporte", exp.cedula], ["Abogado asignado", exp.responsable]],
+    headStyles: { fillColor: [26, 58, 108] },
+  });
+  const detailsY = (pdf as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+  autoTable(pdf, {
+    startY: detailsY,
+    head: [["Trámite", "Apertura", "Vencimiento", "Prioridad"]],
+    body: [[exp.tipo, exp.fecha, exp.vencimiento, exp.prioridad]],
+    headStyles: { fillColor: [26, 58, 108] },
+  });
+  const documentsY = (pdf as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+  autoTable(pdf, {
+    startY: documentsY,
+    head: [["Documento", "Estado", "Fecha de entrega"]],
+    body: [["Cédula de identidad", "Verificado", "12 Ene 2024"], ["Pasaporte vigente", "Verificado", "12 Ene 2024"], ["Antecedentes penales", "Pendiente", "—"]],
+    headStyles: { fillColor: [26, 58, 108] },
+  });
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  pdf.setFontSize(8);
+  pdf.setTextColor(90, 110, 140);
+  pdf.text("Documento generado por SIGDIM — Confidencial", 105, pageHeight - 10, { align: "center" });
+  pdf.save(`${exp.numero}.pdf`);
 }
 
 // ─── LOGIN ─────────────────────────────────────────────────────────────────
@@ -255,7 +297,7 @@ function LoginScreen({ onLogin }: { onLogin: (role: AppRole) => void }) {
             <Shield size={14} style={{ color: "#1A3A6C", flexShrink: 0, marginTop: 1 }} />
             <p className="text-xs" style={{ color: "#5A6E8C" }}>Todas las sesiones son auditadas. Acceso regulado por el Servicio Nacional de Migración de la República de Panamá.</p>
           </div>
-          <p className="text-center text-xs mt-5" style={{ color: "#C0CAD8" }}>© 2024 SIDDIM · v2.4.1 · <span className="cursor-pointer" style={{ color: "#1A3A6C" }}>Soporte</span></p>
+          <p className="text-center text-xs mt-5" style={{ color: "#C0CAD8" }}>© 2026 SIGDIM · v1.0 · <span className="cursor-pointer" style={{ color: "#1A3A6C" }}>Soporte</span></p>
         </div>
       </div>
     </div>
@@ -547,7 +589,7 @@ function ExpedienteModal({ exp, onClose }: { exp: Expediente; onClose: () => voi
           )}
         </div>
         <div className="flex items-center justify-between p-5 pt-3" style={{ borderTop: "1px solid rgba(26,58,108,0.08)" }}>
-          <button className="flex items-center gap-1.5 text-sm font-medium" style={{ color: "#C0392B" }}><Download size={14} />Descargar expediente</button>
+          <button onClick={() => descargarExpedientePdf(exp)} className="flex items-center gap-1.5 text-sm font-medium" style={{ color: "#C0392B" }}><Download size={14} />Descargar expediente</button>
           <div className="flex gap-2">
             <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-semibold" style={{ background: "#F0F3F8", color: "#5A6E8C" }}>Cerrar</button>
             <button className="px-4 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: "#1A3A6C" }}>Actualizar estado</button>
@@ -1672,10 +1714,10 @@ function SolicitanteLayout({ onLogout }: { onLogout: () => void }) {
           <div className="flex items-center gap-3">
             <button className="lg:hidden p-1.5 rounded-lg" style={{ color: "#5A6E8C" }} onClick={() => setSidebarOpen(true)}><Menu size={20} /></button>
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: "#E4EAF4" }}>
-                <Shield size={13} style={{ color: "#1A3A6C" }} />
+              <div className="h-8 rounded-lg bg-white px-1.5 py-1 shadow-sm">
+                <img src="/logoSIGDIM.png" alt="SIGDIM" className="h-full w-auto object-contain" />
               </div>
-              <span className="text-xs font-bold hidden sm:block" style={{ color: "#5A6E8C" }}>SIDDIM — Portal del Solicitante</span>
+              <span className="text-xs font-bold hidden sm:block" style={{ color: "#5A6E8C" }}>SIGDIM — Portal del Solicitante</span>
             </div>
           </div>
           <div className="flex items-center gap-3">
