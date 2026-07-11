@@ -1,0 +1,114 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Rol {
+  SOLICITANTE
+  ABOGADO
+  FUNCIONARIO
+  ADMINISTRADOR
+}
+
+enum EstadoExpediente {
+  BORRADOR
+  PENDIENTE
+  EN_REVISION
+  DOCUMENTOS_FALTANTES
+  EN_VALIDACION
+  APROBADO
+  RECHAZADO
+}
+
+model Usuario {
+  id              String   @id @default(uuid())
+  nombre          String
+  email           String   @unique
+  passwordHash    String
+  rol             Rol
+  pasaporte       String?  @unique
+  activo          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  expedientes     Expediente[] @relation("SolicitanteExpedientes")
+  asignados       Expediente[] @relation("AbogadoExpedientes")
+  auditorias      Auditoria[]
+  refreshTokens   RefreshToken[]
+}
+
+model TipoTramite {
+  id          String   @id @default(uuid())
+  nombre      String   @unique
+  descripcion String?
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  expedientes Expediente[]
+}
+
+model Expediente {
+  id              String           @id @default(uuid())
+  numero          String           @unique
+  solicitanteId   String
+  abogadoId       String?
+  tipoTramiteId   String
+  estado          EstadoExpediente @default(BORRADOR)
+  prioridad       String           @default("MEDIA")
+  fechaApertura   DateTime         @default(now())
+  fechaVencimiento DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  solicitante     Usuario          @relation("SolicitanteExpedientes", fields: [solicitanteId], references: [id])
+  abogado         Usuario?         @relation("AbogadoExpedientes", fields: [abogadoId], references: [id])
+  tipoTramite     TipoTramite      @relation(fields: [tipoTramiteId], references: [id])
+  documentos      Documento[]
+  historial       HistorialEstado[]
+}
+
+model Documento {
+  id            String   @id @default(uuid())
+  expedienteId  String
+  tipo          String
+  nombreOriginal String
+  ruta          String
+  mimeType      String
+  tamano        Int
+  createdAt     DateTime @default(now())
+  expediente    Expediente @relation(fields: [expedienteId], references: [id], onDelete: Cascade)
+}
+
+model HistorialEstado {
+  id            String           @id @default(uuid())
+  expedienteId  String
+  estadoAnterior EstadoExpediente?
+  estadoNuevo   EstadoExpediente
+  comentario    String?
+  createdAt     DateTime         @default(now())
+  expediente    Expediente       @relation(fields: [expedienteId], references: [id], onDelete: Cascade)
+}
+
+model Auditoria {
+  id          String   @id @default(uuid())
+  usuarioId   String?
+  accion      String
+  entidad     String
+  entidadId   String?
+  valorAnterior Json?
+  valorNuevo  Json?
+  ip          String?
+  createdAt   DateTime @default(now())
+  usuario     Usuario? @relation(fields: [usuarioId], references: [id])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  usuarioId String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+}

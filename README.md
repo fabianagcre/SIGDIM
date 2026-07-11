@@ -31,23 +31,33 @@ SIGDIM combina dos especificaciones:
 ## 📦 Requisitos
 
 - Node.js 18+
-- SQLite3 (incluido)
+- PostgreSQL 15+
 - npm
 
 ## ⚡ Instalación y Ejecución
 
 ```bash
-# Instalar dependencias
+# Instalar y ejecutar la interfaz web
 npm install
+npm run dev
 
-# Crear archivo de configuración
+# En otra terminal, configurar el backend
+cd backend
 cp .env.example .env
-
-# Ejecutar servidor con seeders
-node index.js
+npm install
+npm run prisma:generate
+npm run prisma:migrate
+npm run dev
 ```
 
-**API disponible en:** `http://localhost:3000`
+La interfaz está disponible en `http://localhost:5173` y la API en `http://localhost:3000`.
+
+```
+src/       Interfaz React para abogados y solicitantes
+backend/   API Express, Prisma y PostgreSQL
+```
+
+El backend incluye el esquema de usuarios, expedientes, documentos, trámites, historial de estados, auditoría y tokens de sesión. Su estado de servicio se comprueba con `GET /api/health`.
 
 ---
 
