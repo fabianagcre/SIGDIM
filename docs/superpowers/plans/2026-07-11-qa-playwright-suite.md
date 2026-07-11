@@ -610,6 +610,7 @@ git commit -m "test: add clientes grid spec"
 **Interfaces:**
 - Consumes: `loginAsAbogado`.
 - Context: `ConfiguracionView` (lines 744–765). Four uncontrolled inputs with `defaultValue` (lines 750–754): `"Nombre del despacho"` = `"Soto & Asociados Abogados"`, `"Registro en el COLPA"` = `"COL-2019-04821"`, `"Teléfono de contacto"` = `"+507 6123-4567"`, `"Correo oficial"` = `"info@sotoasociados.pa"`. `"Guardar cambios"` (line 761) has no `onClick`. Because the view is conditionally mounted (`{view === "configuracion" && <ConfiguracionView/>}`, line 811), navigating away and back **remounts** it, resetting any typed value back to `defaultValue` — a clean way to prove nothing persists without a full page reload.
+- **Important markup detail:** each `<label>` (line 757) has no `htmlFor`, and its `<input>` (line 758) has no `id` — they are plain sibling elements inside a `<div>`, not programmatically associated. `getByLabel(...)` will NOT find these inputs (Playwright requires `for`/`id`, label-wraps-input, or `aria-labelledby`/`aria-label`, none of which apply here). Locate each input via the CSS sibling combinator instead: `page.locator('label:text-is("Nombre del despacho") + input')`.
 
 - [ ] **Step 1: Write `QA/tests/ui/configuracion.spec.ts`**
 
@@ -625,21 +626,21 @@ test.describe('Configuración (Abogado)', () => {
   });
 
   test('muestra los valores por defecto del despacho', async ({ page }) => {
-    await expect(page.getByLabel('Nombre del despacho')).toHaveValue('Soto & Asociados Abogados');
-    await expect(page.getByLabel('Registro en el COLPA')).toHaveValue('COL-2019-04821');
-    await expect(page.getByLabel('Teléfono de contacto')).toHaveValue('+507 6123-4567');
-    await expect(page.getByLabel('Correo oficial')).toHaveValue('info@sotoasociados.pa');
+    await expect(page.locator('label:text-is("Nombre del despacho") + input')).toHaveValue('Soto & Asociados Abogados');
+    await expect(page.locator('label:text-is("Registro en el COLPA") + input')).toHaveValue('COL-2019-04821');
+    await expect(page.locator('label:text-is("Teléfono de contacto") + input')).toHaveValue('+507 6123-4567');
+    await expect(page.locator('label:text-is("Correo oficial") + input')).toHaveValue('info@sotoasociados.pa');
   });
 
   test('hallazgo: "Guardar cambios" no persiste ninguna edición', async ({ page }) => {
-    const nombreInput = page.getByLabel('Nombre del despacho');
+    const nombreInput = page.locator('label:text-is("Nombre del despacho") + input');
     await nombreInput.fill('Despacho de Prueba QA');
     await page.getByRole('button', { name: 'Guardar cambios' }).click();
 
     await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
     await page.getByRole('button', { name: 'Configuración', exact: true }).click();
 
-    await expect(page.getByLabel('Nombre del despacho')).toHaveValue('Soto & Asociados Abogados');
+    await expect(page.locator('label:text-is("Nombre del despacho") + input')).toHaveValue('Soto & Asociados Abogados');
   });
 });
 ```
