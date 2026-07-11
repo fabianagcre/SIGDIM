@@ -6,7 +6,7 @@ SIGDIM es un sistema de gestión de expedientes migratorios compuesto por:
 - **Frontend**: Vite + React + TypeScript en la raíz del repo. Toda la app vive en un único archivo `src/app/App.tsx` (~1754 líneas), sin React Router (navegación por estado interno), sin llamadas al backend, y con datos completamente hardcodeados (arrays constantes a nivel de módulo).
 - **Backend**: Express + Prisma + PostgreSQL en `backend/`, con modelos definidos (`Usuario`, `TipoTramite`, `Expediente`, `Documento`, `HistorialEstado`, `Auditoria`, `RefreshToken`) pero **solo un endpoint implementado**: `GET /api/health`. No hay rutas de auth, ni CRUD, pese a tener dependencias como `jsonwebtoken`, `bcryptjs`, `multer` ya instaladas.
 
-El usuario pidió verificar el sistema completo con Playwright, cubriendo "todos los casos de prueba posibles", y crear una carpeta `pruebas/` con la suite completa, con el objetivo de poder "sacar este aplicativo correctamente" (i.e., tener claridad de qué está listo para producción y qué no).
+El usuario pidió verificar el sistema completo con Playwright, cubriendo "todos los casos de prueba posibles", y crear una carpeta `QA/` con la suite completa, con el objetivo de poder "sacar este aplicativo correctamente" (i.e., tener claridad de qué está listo para producción y qué no).
 
 Una exploración previa reveló que la mayoría de botones de acción (crear, guardar, subir, enviar, exportar, paginación) son decorativos — no tienen handler real. El usuario confirmó (vía preguntas de clarificación) que quiere:
 1. Cobertura completa incluyendo pruebas que confirmen explícitamente los no-ops (no solo lo que funciona).
@@ -15,7 +15,7 @@ Una exploración previa reveló que la mayoría de botones de acción (crear, gu
 
 ## Arquitectura
 
-`pruebas/` es un **proyecto Playwright autocontenido**, con su propio `package.json` y `playwright.config.ts`, siguiendo el mismo patrón que ya usa `backend/` (paquete npm independiente, no integrado al `pnpm-workspace.yaml` inerte de la raíz). Esto evita tocar el `package.json` del frontend, que es un export de Figma Make.
+`QA/` es un **proyecto Playwright autocontenido**, con su propio `package.json` y `playwright.config.ts`, siguiendo el mismo patrón que ya usa `backend/` (paquete npm independiente, no integrado al `pnpm-workspace.yaml` inerte de la raíz). Esto evita tocar el `package.json` del frontend, que es un export de Figma Make.
 
 `playwright.config.ts` configura `webServer` con dos entradas:
 1. Frontend: `npm run dev` ejecutado en la raíz del repo, esperando el puerto **5173**.
@@ -30,7 +30,7 @@ Requisito previo para que las pruebas corran: contenedor Docker `sigdim-postgres
 ## Estructura de archivos
 
 ```
-pruebas/
+QA/
   package.json                     # @playwright/test como devDependency, scripts: test, test:ui, report
   playwright.config.ts
   tsconfig.json
@@ -76,7 +76,7 @@ Convención de aserciones: cada `test.describe` de una pantalla agrupa primero l
 - **health.spec.ts**: `GET /api/health` responde 200 con `{status:"ok", service:"sigdim-api"}`; header CORS refleja `FRONTEND_URL`.
 - **not-found.spec.ts**: ruta inexistente responde 404 con `{message:"Ruta no encontrada"}`.
 
-## Reporte de hallazgos (`pruebas/REPORTE_HALLAZGOS.md`)
+## Reporte de hallazgos (`QA/REPORTE_HALLAZGOS.md`)
 
 Escrito después de implementar y correr la suite (para basarse en resultados reales, no en suposiciones). Estructura:
 1. Tabla por pantalla: Estado (✅ funcional / ⚠️ decorativo / 🐛 bug / 🚧 no implementado), qué prueba lo cubre.
@@ -85,7 +85,7 @@ Escrito después de implementar y correr la suite (para basarse en resultados re
 
 ## Verificación
 
-1. `cd pruebas && npm install && npx playwright install chromium`
+1. `cd QA && npm install && npx playwright install chromium`
 2. `npm test` — corre toda la suite contra frontend+backend levantados automáticamente por `webServer`.
 3. Confirmar que el reporte HTML de Playwright (`npx playwright show-report`) muestra los specs de UI y API, con los casos no-op en verde (confirmando el gap) y el caso de bug del wizard marcado explícitamente.
-4. Revisar `pruebas/REPORTE_HALLAZGOS.md` generado y contrastarlo manualmente contra 2-3 pantallas para confirmar que la clasificación (funcional/decorativo/bug) es precisa.
+4. Revisar `QA/REPORTE_HALLAZGOS.md` generado y contrastarlo manualmente contra 2-3 pantallas para confirmar que la clasificación (funcional/decorativo/bug) es precisa.
