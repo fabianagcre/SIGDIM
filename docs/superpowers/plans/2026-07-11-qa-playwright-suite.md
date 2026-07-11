@@ -667,6 +667,7 @@ git commit -m "test: add configuracion form spec"
 **Interfaces:**
 - Consumes: `loginAsSolicitante`.
 - Context: `SolicitanteInicio` (lines 1099–1202), default view. Active trámite is `MIS_TRAMITES[0]` (lines 823–833): tipo `"Residencia Permanente"`, `numero` `"EXP-2024-0451"`, `abogado` `"Lcda. Laura Soto"`, `progreso: 60` → visible text `"60%"` (line 1127). Steps `"Recibido", "Documentación", "En Revisión", "Decisión", "Resolución"` (line 1102). The 4 quick-action buttons (lines 1156–1180) **do** have real `onClick={() => setView(a.view)}` handlers — genuinely functional navigation, not decorative: `"Mis Trámites"` → mistramites, `"Nuevo Trámite"` → solicitar, `"Oficinas SNM"` → oficinas, `"Centro de Ayuda"` → ayuda. `"Subir ahora"` (line 1197) has no `onClick` — no-op, and there is no `<input type="file">` anywhere on this view.
+- **Known collision:** the sidebar `SolicitanteNav` (always rendered alongside the main content, confirmed in Task 3's review) has nav buttons labeled exactly `"Mis Trámites"` and `"Nuevo Trámite"` too (lines 1053-1054) — identical accessible names to two of the four quick-action buttons here. Scope the quick-action clicks to the main content pane to avoid a strict-mode violation: both layouts render their content in a `<div className="flex-1 overflow-y-auto p-5">` (verified at lines 807 and 1735), so use `page.locator('div.flex-1.overflow-y-auto')` as the scoping locator for these two specific clicks (the other two quick-action buttons, "Oficinas SNM" and "Centro de Ayuda", have no colliding sidebar label — "Oficinas" and "Ayuda" are shorter substrings contained the other way around, not vice versa — so they don't need scoping).
 
 - [ ] **Step 1: Write `QA/tests/ui/solicitante-inicio.spec.ts`**
 
@@ -693,11 +694,12 @@ test.describe('Inicio (Solicitante)', () => {
   });
 
   test('real: los 4 accesos rápidos navegan a su vista correspondiente', async ({ page }) => {
-    await page.getByRole('button', { name: 'Mis Trámites' }).click();
+    const mainContent = page.locator('div.flex-1.overflow-y-auto');
+    await mainContent.getByRole('button', { name: 'Mis Trámites', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Mis Trámites', exact: true })).toBeVisible();
 
     await page.getByRole('button', { name: 'Inicio', exact: true }).click();
-    await page.getByRole('button', { name: 'Nuevo Trámite' }).click();
+    await mainContent.getByRole('button', { name: 'Nuevo Trámite', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Solicitar Nuevo Trámite' })).toBeVisible();
 
     await page.getByRole('button', { name: 'Inicio', exact: true }).click();
