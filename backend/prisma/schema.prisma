@@ -24,6 +24,18 @@ enum EstadoExpediente {
   RECHAZADO
 }
 
+enum PermisoRepresentacion {
+  VER_EXPEDIENTE
+  SUBIR_DOCUMENTOS
+  GESTIONAR_TRAMITE
+  RECIBIR_NOTIFICACIONES
+}
+
+enum EstadoRepresentacion {
+  ACTIVA
+  REVOCADA
+}
+
 model Usuario {
   id              String   @id @default(uuid())
   nombre          String
@@ -31,6 +43,7 @@ model Usuario {
   passwordHash    String
   rol             Rol
   pasaporte       String?  @unique
+  licencia        String?  @unique
   activo          Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -38,6 +51,23 @@ model Usuario {
   asignados       Expediente[] @relation("AbogadoExpedientes")
   auditorias      Auditoria[]
   refreshTokens   RefreshToken[]
+  representacionesComoSolicitante Representacion[] @relation("SolicitanteRepresentaciones")
+  representacionesComoAbogado     Representacion[] @relation("AbogadoRepresentaciones")
+}
+
+/// Vínculo Solicitante -> Abogado con permisos otorgados. Regla de negocio:
+/// un solicitante solo puede tener una representación ACTIVA a la vez
+/// (se valida en la ruta de creación, no como constraint de BD).
+model Representacion {
+  id            String                  @id @default(uuid())
+  solicitanteId String
+  abogadoId     String
+  estado        EstadoRepresentacion    @default(ACTIVA)
+  permisos      PermisoRepresentacion[]
+  createdAt     DateTime                @default(now())
+  revokedAt     DateTime?
+  solicitante   Usuario                 @relation("SolicitanteRepresentaciones", fields: [solicitanteId], references: [id])
+  abogado       Usuario                 @relation("AbogadoRepresentaciones", fields: [abogadoId], references: [id])
 }
 
 model TipoTramite {

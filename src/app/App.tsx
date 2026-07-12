@@ -19,7 +19,15 @@ import {
 
 type AppRole = "abogado" | "solicitante" | null;
 type AbogadoView = "dashboard" | "expedientes" | "clientes" | "configuracion";
-type SolicitanteView = "inicio" | "mistramites" | "solicitar" | "oficinas" | "ayuda";
+type SolicitanteView = "inicio" | "mistramites" | "solicitar" | "oficinas" | "ayuda" | "asignarabogado" | "miabogado";
+
+type PermisoRepresentacion = "VER_EXPEDIENTE" | "SUBIR_DOCUMENTOS" | "GESTIONAR_TRAMITE" | "RECIBIR_NOTIFICACIONES";
+
+type Representacion = {
+  abogado: { nombre: string; licencia: string; email: string; despacho: string };
+  permisos: PermisoRepresentacion[];
+  fecha: string;
+};
 
 // ─── Shared data ───────────────────────────────────────────────────────────
 
@@ -843,6 +851,18 @@ const MIS_TRAMITES = [
   },
 ];
 
+const ABOGADOS_DIRECTORIO = [
+  { licencia: "LIC-4521", nombre: "Lcda. Ana Ábrego", email: "abogado@sigdim.gov.pa", despacho: "Ábrego & Asociados" },
+  { licencia: "LIC-7788", nombre: "Lcdo. Carlos Ruiz", email: "cruiz@sigdim.gov.pa", despacho: "Ruiz Legal" },
+];
+
+const PERMISOS_DISPONIBLES: { id: PermisoRepresentacion; label: string; desc: string }[] = [
+  { id: "VER_EXPEDIENTE", label: "Ver mi expediente", desc: "Podrá consultar el estado y los documentos de tu trámite." },
+  { id: "SUBIR_DOCUMENTOS", label: "Subir documentos", desc: "Podrá adjuntar documentos en tu nombre." },
+  { id: "GESTIONAR_TRAMITE", label: "Gestionar el trámite", desc: "Podrá modificar datos y avanzar el estado del trámite." },
+  { id: "RECIBIR_NOTIFICACIONES", label: "Recibir notificaciones", desc: "Recibirá alertas sobre cambios de estado del expediente." },
+];
+
 const OFICINAS = [
   {
     nombre: "Oficina Central – Ciudad de Panamá",
@@ -1096,7 +1116,7 @@ function SolicitanteNav({ view, setView, onLogout }: { view: SolicitanteView; se
   );
 }
 
-function SolicitanteInicio({ setView }: { setView: (v: SolicitanteView) => void }) {
+function SolicitanteInicio({ setView, representacion }: { setView: (v: SolicitanteView) => void; representacion: Representacion | null }) {
   const tramite = MIS_TRAMITES[0];
   const cfg = estadoConfig[tramite.estado];
   const steps = ["Recibido","Documentación","En Revisión","Decisión","Resolución"];
@@ -1153,10 +1173,13 @@ function SolicitanteInicio({ setView }: { setView: (v: SolicitanteView) => void 
       </div>
 
       {/* Quick actions */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {[
           { label: "Mis Trámites", icon: FileText, view: "mistramites" as SolicitanteView, color: "#1A3A6C", bg: "#E4EAF4" },
           { label: "Nuevo Trámite", icon: Plus, view: "solicitar" as SolicitanteView, color: "#2E7D32", bg: "#E8F5E9" },
+          representacion
+            ? { label: "Mi Abogado", icon: UserCheck, view: "miabogado" as SolicitanteView, color: "#2980B9", bg: "#E3F2FD" }
+            : { label: "Asignar Abogado", icon: UserCheck, view: "asignarabogado" as SolicitanteView, color: "#2980B9", bg: "#E3F2FD" },
           { label: "Oficinas SNM", icon: MapPin, view: "oficinas" as SolicitanteView, color: "#B7791F", bg: "#FEF3C7" },
           { label: "Centro de Ayuda", icon: HelpCircle, view: "ayuda" as SolicitanteView, color: "#6D28D9", bg: "#EDE9FE" },
         ].map(a => {
@@ -1689,11 +1712,223 @@ function FaqItem({ q, a }: { q: string; a: string }) {
   );
 }
 
+// ─── ASIGNAR ABOGADO (Pantalla 1) ─────────────────────────────────────────
+
+function SolicitanteAsignarAbogado({ setView, onAsignar }: { setView: (v: SolicitanteView) => void; onAsignar: (r: Representacion) => void }) {
+  const [licencia, setLicencia] = useState("");
+  const [buscando, setBuscando] = useState(false);
+  const [buscado, setBuscado] = useState(false);
+  const [resultado, setResultado] = useState<typeof ABOGADOS_DIRECTORIO[0] | null>(null);
+  const [permisos, setPermisos] = useState<PermisoRepresentacion[]>([]);
+  const [asignando, setAsignando] = useState(false);
+
+  const buscar = (e: React.FormEvent) => {
+    e.preventDefault();
+    setBuscando(true);
+    setTimeout(() => {
+      const encontrado = ABOGADOS_DIRECTORIO.find(a => a.licencia.toLowerCase() === licencia.trim().toLowerCase());
+      setResultado(encontrado ?? null);
+      setPermisos([]);
+      setBuscando(false);
+      setBuscado(true);
+    }, 600);
+  };
+
+  const togglePermiso = (id: PermisoRepresentacion) => {
+    setPermisos(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]);
+  };
+
+  const asignar = () => {
+    if (!resultado || permisos.length === 0) return;
+    setAsignando(true);
+    setTimeout(() => {
+      onAsignar({
+        abogado: resultado,
+        permisos,
+        fecha: new Date().toLocaleDateString("es-PA", { day: "2-digit", month: "short", year: "numeric" }),
+      });
+      setAsignando(false);
+      setView("miabogado");
+    }, 800);
+  };
+
+  return (
+    <div className="space-y-5 max-w-xl">
+      <div>
+        <h1 className="font-extrabold text-xl" style={{ color: "#0F1F3D" }}>Asignar Abogado</h1>
+        <p className="text-sm mt-0.5" style={{ color: "#5A6E8C" }}>Busca a tu abogado por su número de licencia y define qué podrá hacer en tu nombre.</p>
+      </div>
+
+      <form onSubmit={buscar} className="rounded-xl p-5 bg-card border space-y-3" style={{ borderColor: "rgba(26,58,108,0.08)" }}>
+        <label className="block text-sm font-semibold" style={{ color: "#0F1F3D" }}>Número de licencia</label>
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "#9AAAC2" }} />
+            <input type="text" value={licencia} onChange={e => { setLicencia(e.target.value); setBuscado(false); }}
+              placeholder="Ej. LIC-4521"
+              className="w-full pl-9 pr-4 py-2.5 rounded-lg text-sm border outline-none"
+              style={{ border: "1.5px solid #D0D9EA", background: "#F7F9FC", color: "#0F1F3D" }} />
+          </div>
+          <button type="submit" disabled={!licencia.trim() || buscando}
+            className="px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 flex-shrink-0"
+            style={{ background: !licencia.trim() || buscando ? "#9AAAC2" : "#1A3A6C", color: "white" }}>
+            {buscando ? <RefreshCw size={14} className="animate-spin" /> : <Search size={14} />}
+            Buscar
+          </button>
+        </div>
+      </form>
+
+      {buscado && !resultado && (
+        <div className="rounded-xl p-4 flex items-center gap-3" style={{ background: "#FDECEA", border: "1px solid rgba(192,57,43,0.2)" }}>
+          <AlertCircle size={18} style={{ color: "#C0392B" }} />
+          <p className="text-sm" style={{ color: "#C0392B" }}>No se encontró ningún abogado con la licencia <strong>{licencia}</strong>.</p>
+        </div>
+      )}
+
+      {resultado && (
+        <div className="rounded-xl bg-card border p-5 space-y-4" style={{ borderColor: "rgba(26,58,108,0.08)" }}>
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0" style={{ background: "#E4EAF4", color: "#1A3A6C" }}>
+              {resultado.nombre.split(" ").slice(-2).map(p => p[0]).join("")}
+            </div>
+            <div>
+              <div className="font-bold text-sm" style={{ color: "#0F1F3D" }}>{resultado.nombre}</div>
+              <div className="text-xs" style={{ color: "#9AAAC2" }}>{resultado.despacho} · {resultado.licencia}</div>
+            </div>
+          </div>
+
+          <div>
+            <h4 className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "#9AAAC2" }}>Permisos a otorgar</h4>
+            <div className="space-y-2">
+              {PERMISOS_DISPONIBLES.map(p => (
+                <label key={p.id} className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all"
+                  style={{ borderColor: permisos.includes(p.id) ? "#1A3A6C" : "#E0E6F0", background: permisos.includes(p.id) ? "#F0F3F8" : "white" }}>
+                  <input type="checkbox" checked={permisos.includes(p.id)} onChange={() => togglePermiso(p.id)}
+                    className="w-4 h-4 rounded mt-0.5" style={{ accentColor: "#1A3A6C" }} />
+                  <div>
+                    <div className="text-sm font-semibold" style={{ color: "#0F1F3D" }}>{p.label}</div>
+                    <div className="text-xs" style={{ color: "#5A6E8C" }}>{p.desc}</div>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <button onClick={asignar} disabled={permisos.length === 0 || asignando}
+            className="w-full py-2.5 rounded-lg font-bold text-sm flex items-center justify-center gap-2"
+            style={{ background: permisos.length === 0 || asignando ? "#9AAAC2" : "#1A3A6C", color: "white" }}>
+            {asignando ? <><RefreshCw size={14} className="animate-spin" />Asignando...</> : <>Asignar como mi representante <ArrowRight size={14} /></>}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── MI ABOGADO + REVOCAR (Pantalla 2) ────────────────────────────────────
+
+function SolicitanteMiAbogado({ representacion, setView, onRevocar }: { representacion: Representacion | null; setView: (v: SolicitanteView) => void; onRevocar: () => void }) {
+  const [confirmando, setConfirmando] = useState(false);
+  const [revocando, setRevocando] = useState(false);
+
+  if (!representacion) {
+    return (
+      <div className="space-y-4 max-w-xl">
+        <h1 className="font-extrabold text-xl" style={{ color: "#0F1F3D" }}>Mi Abogado</h1>
+        <div className="rounded-xl p-6 bg-card border text-center" style={{ borderColor: "rgba(26,58,108,0.08)" }}>
+          <p className="text-sm mb-4" style={{ color: "#5A6E8C" }}>Todavía no has asignado un abogado representante.</p>
+          <button onClick={() => setView("asignarabogado")} className="px-4 py-2 rounded-lg text-sm font-bold" style={{ background: "#1A3A6C", color: "white" }}>Asignar abogado</button>
+        </div>
+      </div>
+    );
+  }
+
+  const revocar = () => {
+    setRevocando(true);
+    setTimeout(() => {
+      onRevocar();
+      setRevocando(false);
+      setConfirmando(false);
+    }, 700);
+  };
+
+  return (
+    <div className="space-y-5 max-w-xl">
+      <div>
+        <h1 className="font-extrabold text-xl" style={{ color: "#0F1F3D" }}>Mi Abogado</h1>
+        <p className="text-sm mt-0.5" style={{ color: "#5A6E8C" }}>Expediente de representación vigente y los permisos que le otorgaste.</p>
+      </div>
+
+      <div className="rounded-2xl overflow-hidden border" style={{ borderColor: "rgba(26,58,108,0.1)" }}>
+        <div className="p-5 flex items-center justify-between" style={{ background: "linear-gradient(135deg, #0F2550 0%, #1A3A6C 100%)" }}>
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0" style={{ background: "rgba(255,255,255,0.15)", color: "white" }}>
+              {representacion.abogado.nombre.split(" ").slice(-2).map(p => p[0]).join("")}
+            </div>
+            <div>
+              <div className="text-white font-bold text-sm">{representacion.abogado.nombre}</div>
+              <div className="text-xs" style={{ color: "rgba(255,255,255,0.6)" }}>{representacion.abogado.despacho} · {representacion.abogado.licencia}</div>
+            </div>
+          </div>
+          <span className="px-2.5 py-1 rounded-full text-xs font-bold" style={{ background: "#E8F5E9", color: "#2E7D32" }}>Activa</span>
+        </div>
+        <div className="bg-white p-5 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-3 rounded-xl" style={{ background: "#F7F9FC" }}>
+              <div className="text-xs font-semibold" style={{ color: "#9AAAC2" }}>Correo</div>
+              <div className="text-sm font-bold mt-0.5" style={{ color: "#0F1F3D" }}>{representacion.abogado.email}</div>
+            </div>
+            <div className="p-3 rounded-xl" style={{ background: "#F7F9FC" }}>
+              <div className="text-xs font-semibold" style={{ color: "#9AAAC2" }}>Asignado desde</div>
+              <div className="text-sm font-bold mt-0.5" style={{ color: "#0F1F3D" }}>{representacion.fecha}</div>
+            </div>
+          </div>
+
+          <div>
+            <h4 className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: "#9AAAC2" }}>Permisos otorgados</h4>
+            <div className="space-y-2">
+              {PERMISOS_DISPONIBLES.map(p => {
+                const otorgado = representacion.permisos.includes(p.id);
+                return (
+                  <div key={p.id} className="flex items-center gap-3 p-2.5 rounded-lg" style={{ background: otorgado ? "#F0F3F8" : "transparent", opacity: otorgado ? 1 : 0.5 }}>
+                    {otorgado ? <CheckCircle size={16} style={{ color: "#2E7D32" }} /> : <XCircle size={16} style={{ color: "#9AAAC2" }} />}
+                    <span className="text-sm font-medium" style={{ color: "#0F1F3D" }}>{p.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {!confirmando ? (
+        <button onClick={() => setConfirmando(true)}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold border"
+          style={{ color: "#C0392B", borderColor: "rgba(192,57,43,0.3)" }}>
+          <XCircle size={15} />Revocar representación
+        </button>
+      ) : (
+        <div className="rounded-xl p-4 space-y-3" style={{ background: "#FFFAF9", border: "1px solid rgba(192,57,43,0.2)" }}>
+          <p className="text-sm" style={{ color: "#C0392B" }}>¿Seguro que deseas revocar la representación de <strong>{representacion.abogado.nombre}</strong>? Perderá acceso inmediato a tu expediente.</p>
+          <div className="flex gap-2">
+            <button onClick={revocar} disabled={revocando}
+              className="px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2" style={{ background: "#C0392B", color: "white" }}>
+              {revocando ? <><RefreshCw size={14} className="animate-spin" />Revocando...</> : "Sí, revocar"}
+            </button>
+            <button onClick={() => setConfirmando(false)} className="px-4 py-2 rounded-lg text-sm font-bold border" style={{ color: "#5A6E8C", borderColor: "#D0D9EA" }}>Cancelar</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── SOLICITANTE LAYOUT ────────────────────────────────────────────────────
 
 function SolicitanteLayout({ onLogout }: { onLogout: () => void }) {
   const [view, setView] = useState<SolicitanteView>("inicio");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [representacion, setRepresentacion] = useState<Representacion | null>(null);
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: "#F0F3F8" }}>
@@ -1733,11 +1968,13 @@ function SolicitanteLayout({ onLogout }: { onLogout: () => void }) {
           </div>
         </div>
         <div className="flex-1 overflow-y-auto p-5" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-          {view === "inicio"      && <SolicitanteInicio setView={setView} />}
-          {view === "mistramites" && <SolicitanteMisTramites />}
-          {view === "solicitar"   && <SolicitanteSolicitar />}
-          {view === "oficinas"    && <SolicitanteOficinas />}
-          {view === "ayuda"       && <SolicitanteAyuda />}
+          {view === "inicio"         && <SolicitanteInicio setView={setView} representacion={representacion} />}
+          {view === "mistramites"    && <SolicitanteMisTramites />}
+          {view === "solicitar"      && <SolicitanteSolicitar />}
+          {view === "oficinas"       && <SolicitanteOficinas />}
+          {view === "ayuda"          && <SolicitanteAyuda />}
+          {view === "asignarabogado" && <SolicitanteAsignarAbogado setView={setView} onAsignar={setRepresentacion} />}
+          {view === "miabogado"      && <SolicitanteMiAbogado representacion={representacion} setView={setView} onRevocar={() => setRepresentacion(null)} />}
         </div>
       </div>
     </div>
