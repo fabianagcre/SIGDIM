@@ -25,7 +25,7 @@ guidelines/ Lineamientos de diseño de la interfaz
 - React 18 + Vite + TypeScript, Tailwind v4 y componentes Radix/shadcn.
 - Prototipo funcional con **datos de prueba (mock)** en casi toda la app (login incluido); la excepción es el **registro de Solicitante**, que sí llama al backend real.
 - Dos roles con sus propias pantallas:
-  - **Abogado**: Dashboard, Expedientes (con modal de detalle y exportación a PDF vía jsPDF; el identificador de cada cliente es su **pasaporte**, no cédula), Clientes, Configuración.
+  - **Abogado**: Dashboard, Expedientes (con modal de detalle, exportación a PDF vía jsPDF, y **subida de documentos / actualización de estado reales** contra el backend; el identificador de cada cliente es su **pasaporte**, no cédula), Clientes, Configuración.
   - **Solicitante**: Inicio, Mis Trámites, Solicitar Trámite, Oficinas SNM, Centro de Ayuda, **Asignar Abogado** y **Mi Abogado** (representación legal), y **Crear cuenta** (registro real).
 
 ### ✅ Backend (`backend/`)
@@ -33,17 +33,12 @@ guidelines/ Lineamientos de diseño de la interfaz
 - Modelo de datos completo definido en `prisma/schema.prisma`, con las migraciones aplicadas: `Usuario`, `TipoTramite`, `Expediente`, `Documento`, `HistorialEstado`, `Auditoria`, `RefreshToken`, `Representacion`.
 - **Autenticación JWT** implementada y probada de extremo a extremo (ver detalle más abajo).
 - **Representaciones Solicitante ↔ Abogado** con permisos granulares y middleware `checkPermiso` reutilizable (ver más abajo).
-- Seed de usuarios de prueba (`backend/prisma/seed.js`, uno por rol, dos abogados con licencia).
+- **Expedientes**: subida de documentos (multer) y actualización de estado (con historial), ver más abajo.
+- Seed de usuarios de prueba y datos demo (`backend/prisma/seed.js`): usuarios por rol, dos abogados con licencia, y los 8 expedientes mock del frontend espejados como registros reales (mismo `numero`).
 
 ### ✅ QA (`QA/`)
 - Suite de pruebas end-to-end con Playwright contra la interfaz: `auth`, `navigation`, `dashboard`, `expedientes`, `expediente-modal`, `representacion`, `registro`.
-- `registro.spec.ts` es la única suite que depende del **backend real corriendo contra Postgres** (llama a `/api/auth/register`); el resto solo necesita la interfaz.
-
-### ⏳ Pendiente / próxima entrega
-- RBAC aplicado a más endpoints (el middleware `authorize(...roles)` ya existe y se usa en auth/representaciones, falta usarlo en las rutas CRUD que vengan).
-- Endpoints CRUD de expedientes y documentos.
-- Conectar el resto de la interfaz a la API real (login, Dashboard, Expedientes, Clientes siguen en mock; las pantallas de Asignar/Revocar Abogado usan un directorio de abogados mock en el propio frontend, no el endpoint `GET /api/usuarios/abogados/buscar`).
-- Análisis de SonarQube: el servidor está levantado pero falta crear el proyecto y correr el scanner (detalle en [`docs/entrega-parcial2-qa-sonarqube.md`](docs/entrega-parcial2-qa-sonarqube.md)).
+- `registro.spec.ts` y varios tests de `expediente-modal.spec.ts` dependen del **backend real corriendo contra Postgres, ya sembrado** (`npm run prisma:seed`); el resto de la suite solo necesita la interfaz.
 
 ---
 
@@ -135,6 +130,20 @@ router.get("/:representacionId/expediente-resumen", authenticate, checkPermiso("
 ```
 
 En la interfaz, el panel del Solicitante tiene dos pantallas nuevas (mock, sin conectar a la API todavía): **Asignar Abogado** (buscar por licencia + checkboxes de permisos) y **Mi Abogado** (detalle de la representación vigente + botón Revocar).
+
+---
+
+## 📁 Expedientes: documentos y estado
+
+```bash
+GET   /api/expedientes/:numero              (autenticado) expediente + documentos + historial + tipoTramite + solicitante
+POST  /api/expedientes/:numero/documentos    (abogado) sube un archivo (multipart, campo "file") -> Documento
+PATCH /api/expedientes/:numero/estado        (abogado) { estado, comentario? } -> actualiza Expediente y crea HistorialEstado
+```
+
+`:numero` es el identificador legible del expediente (ej. `EXP-2024-0451`), el mismo que usa la interfaz — no hace falta conocer el UUID interno. Los archivos se guardan en `UPLOAD_DIR` (por defecto `backend/uploads/`, fuera de git).
+
+En la interfaz, el modal de expediente del Abogado (`Expedientes → clic en una fila`) usa estos tres endpoints de verdad: al abrir carga los documentos reales, "Subir documento" sube el archivo elegido, y "Actualizar estado" abre un panel para elegir el nuevo estado y guardarlo. El resto del panel Abogado (login, Dashboard, la lista de Expedientes) sigue en mock — por eso, al "iniciar sesión" como abogado, la app autentica en segundo plano contra la cuenta demo (`abogado@sigdim.gov.pa`) para obtener un token real sin cambiar el login visible.
 
 ---
 
