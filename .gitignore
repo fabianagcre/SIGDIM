@@ -6,3 +6,6 @@ backend/uploads/
 !.env.example
 *.log
 .DS_Store
+.claude/
+.scannerwork/
+.superpowers/

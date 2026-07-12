@@ -34,6 +34,19 @@ npm run report        # abre el último reporte HTML generado
 
 Los servidores de frontend (`http://localhost:5173`) y backend (`http://localhost:3000`) se levantan automáticamente vía `webServer` en `playwright.config.ts`, reutilizando instancias ya corriendo si existen.
 
+### Solución de problemas: muchas pruebas fallan a la vez con timeouts
+
+Si de repente casi toda la suite falla por timeout (y antes pasaba bien), lo más probable es que `reuseExistingServer: true` esté reutilizando un proceso de Node de una corrida anterior que quedó colgado/en mal estado en el puerto 5173 o 3000, en vez de dejar que Playwright levante uno nuevo. Solución:
+
+```bash
+# Windows
+netstat -ano | findstr ":5173 :3000"
+taskkill /F /PID <pid>
+
+# luego vuelve a correr la suite; Playwright levantará servidores frescos
+npm test
+```
+
 ## Estructura
 
 ```
