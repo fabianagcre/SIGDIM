@@ -806,6 +806,7 @@ git commit -m "test: add mis tramites accordion spec"
 **Interfaces:**
 - Consumes: `loginAsSolicitante`.
 - Context: `SolicitanteSolicitar` (lines 1302–1507), a 3-step wizard (`step` state, starts at 1). Step 1: 6 trámite-type cards from `TRAMITES_CATALOGO` (lines 909–1045); selecting one enables `"Continuar"` (`disabled={!selected}`, line 1391). Step 2: 8 uncontrolled `<input>` fields with **no `value`/`defaultValue` at all** (lines 1409–1424) — typing into them is never captured anywhere; `"Revisar solicitud"` (line 1431) advances to step 3 with **zero validation** regardless of field contents. Step 3 renders a **hardcoded** summary (lines 1480–1493: always `"James William Scott"`, `"AB1234567"`, etc., except the `"Tipo de trámite"` field which does reflect the real `selected` value) — this is the confirmed bug: user input from step 2 never appears in step 3. `"Enviar solicitud"` (line 1501) **is wired** (`onClick={() => setStep(1)}`) but only silently resets the wizard to step 1 with no success confirmation anywhere — a misleading-success gap, not a pure no-op. Going step2 → step1 → step2 preserves the selected trámite type (parent state) but step3 → step2 remounts the form fields empty (conditionally-rendered JSX, no `key` reuse trick), proving there is no persistence across the back navigation either.
+- **Known collision:** same pattern as Tasks 9-10 — the sidebar `SolicitanteNav` has a "Nuevo Trámite" button (identical accessible name to the Inicio quick-action card), and this spec logs in fresh each time (landing on Inicio by default), so the `beforeEach` must click the sidebar one. Scope via `page.getByRole('navigation')` (the only `<nav>` rendered under the solicitante role), same fix as Task 10.
 
 - [ ] **Step 1: Write `QA/tests/ui/solicitar-tramite.spec.ts`**
 
@@ -816,7 +817,7 @@ import { loginAsSolicitante } from '../helpers/auth';
 test.describe('Solicitar Nuevo Trámite (Solicitante)', () => {
   test.beforeEach(async ({ page }) => {
     await loginAsSolicitante(page);
-    await page.getByRole('button', { name: 'Nuevo Trámite' }).click();
+    await page.getByRole('navigation').getByRole('button', { name: 'Nuevo Trámite', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Solicitar Nuevo Trámite' })).toBeVisible();
   });
 
