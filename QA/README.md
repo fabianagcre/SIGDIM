@@ -4,6 +4,11 @@
 
 - Node.js 18+
 - El backend necesita `backend/.env` con `DATABASE_URL`, `JWT_ACCESS_SECRET` y `JWT_REFRESH_SECRET` definidos (no necesita una base de datos alcanzable: ninguna ruta actual toca Prisma).
+- **Instalación de dependencias**: antes de correr la suite, instala las dependencias en la raíz del repo y en `backend/`, ya que los servidores se lanzan automáticamente vía `webServer`:
+  ```bash
+  npm install           # en la raíz
+  cd backend && npm install   # en backend/
+  ```
 
 ## Instalación
 
