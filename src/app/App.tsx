@@ -45,10 +45,10 @@ const EXPEDIENTES: Expediente[] = [
   { id: "1", numero: "EXP-2024-0451", cliente: "María González Herrera", pasaporte: "PA1847293", tipo: "Residencia Permanente", estado: "activo", fecha: "2024-01-15", vencimiento: "2024-07-15", responsable: "Lcda. Soto", prioridad: "alta" },
   { id: "2", numero: "EXP-2024-0389", cliente: "Carlos Martínez Lima", pasaporte: "PE0934821", tipo: "Visa de Trabajo", estado: "pendiente", fecha: "2024-01-10", vencimiento: "2024-04-10", responsable: "Lcdo. Ramos", prioridad: "alta" },
   { id: "3", numero: "EXP-2024-0312", cliente: "Ana Rodríguez Pinto", pasaporte: "PA2841937", tipo: "Naturalización", estado: "revision", fecha: "2023-11-20", vencimiento: "2024-05-20", responsable: "Lcda. Soto", prioridad: "media" },
-  { id: "4", numero: "EXP-2024-0288", cliente: "Roberto Chen Wei", pasaporte: "CN5723841", tipo: "Visa de Inversionista", estado: "aprobado", fecha: "2023-10-05", vencimiento: "2026-10-05", responsable: "Lcdo. Pérez", prioridad: "baja" },
+  { id: "4", numero: "EXP-2024-0288", cliente: "Roberto Chen Wei", pasaporte: "E57238419", tipo: "Visa de Inversionista", estado: "aprobado", fecha: "2023-10-05", vencimiento: "2026-10-05", responsable: "Lcdo. Pérez", prioridad: "baja" },
   { id: "5", numero: "EXP-2024-0271", cliente: "Lucía Fernández Castro", pasaporte: "PA3928471", tipo: "Residencia Provisional", estado: "rechazado", fecha: "2023-09-14", vencimiento: "2024-03-14", responsable: "Lcdo. Ramos", prioridad: "alta" },
-  { id: "6", numero: "EXP-2024-0445", cliente: "James William Scott", pasaporte: "US7481923", tipo: "Permiso de Trabajo", estado: "activo", fecha: "2024-01-18", vencimiento: "2025-01-18", responsable: "Lcda. Morales", prioridad: "media" },
-  { id: "7", numero: "EXP-2024-0398", cliente: "Fatima Al-Hassan", pasaporte: "SY2847193", tipo: "Reunificación Familiar", estado: "doc_faltantes", fecha: "2024-01-12", vencimiento: "2024-06-12", responsable: "Lcda. Morales", prioridad: "media" },
+  { id: "6", numero: "EXP-2024-0445", cliente: "James William Scott", pasaporte: "C74819234", tipo: "Permiso de Trabajo", estado: "activo", fecha: "2024-01-18", vencimiento: "2025-01-18", responsable: "Lcda. Morales", prioridad: "media" },
+  { id: "7", numero: "EXP-2024-0398", cliente: "Fatima Al-Hassan", pasaporte: "N28471934", tipo: "Reunificación Familiar", estado: "doc_faltantes", fecha: "2024-01-12", vencimiento: "2024-06-12", responsable: "Lcda. Morales", prioridad: "media" },
   { id: "8", numero: "EXP-2024-0201", cliente: "Diego Vargas Méndez", pasaporte: "PA9182734", tipo: "Doble Nacionalidad", estado: "aprobado", fecha: "2023-08-22", vencimiento: "2033-08-22", responsable: "Lcdo. Pérez", prioridad: "baja" },
 ];
 
@@ -107,8 +107,21 @@ function PrioridadDot({ prioridad }: { prioridad: "alta" | "media" | "baja" }) {
 
 // ─── System brand ──────────────────────────────────────────────────────────
 
-function SystemLogo({ size = "md" }: { size?: "sm" | "md" | "lg"; light?: boolean }) {
+function SystemLogo({ size = "md", light = false }: { size?: "sm" | "md" | "lg"; light?: boolean }) {
+  // El arte del logo usa azul marino oscuro para "SIG", que se pierde sobre
+  // fondos oscuros — por eso siempre se apoya en una tarjeta clara, incluso
+  // en paneles con degradado navy (variante `light`, solo cambia tamaño/sombra).
   const sizes = { sm: "h-11", md: "h-16", lg: "h-24" };
+  const sizesLight = { sm: "h-14", md: "h-20", lg: "h-28" };
+
+  if (light) {
+    return (
+      <div className="inline-flex items-center rounded-2xl bg-white px-3 py-2" style={{ boxShadow: "0 8px 24px rgba(0,0,0,0.25)" }} aria-label="SIGDIM">
+        <img src="/logoSIGDIM.png" alt="SIGDIM — Sistema Integrado de Gestión de Debida Diligencia Migratoria" className={`${sizesLight[size]} w-auto object-contain`} />
+      </div>
+    );
+  }
+
   return (
     <div className="inline-flex items-center rounded-xl bg-white px-2 py-1.5 shadow-sm" aria-label="SIGDIM">
       <img src="/logoSIGDIM.png" alt="SIGDIM — Sistema Integrado de Gestión de Debida Diligencia Migratoria" className={`${sizes[size]} w-auto object-contain`} />
@@ -839,9 +852,9 @@ function ClientesView() {
     { nombre: "María González Herrera", pasaporte: "PA1847293", pais: "Panamá", email: "mgonzalez@email.com", expedientes: 2, estado: "activo" },
     { nombre: "Carlos Martínez Lima", pasaporte: "PE0934821", pais: "Perú", email: "cmartinez@email.com", expedientes: 1, estado: "activo" },
     { nombre: "Ana Rodríguez Pinto", pasaporte: "PA2841937", pais: "Panamá", email: "arodriguez@email.com", expedientes: 3, estado: "activo" },
-    { nombre: "Roberto Chen Wei", pasaporte: "CN5723841", pais: "China", email: "rchen@email.com", expedientes: 1, estado: "inactivo" },
+    { nombre: "Roberto Chen Wei", pasaporte: "E57238419", pais: "China", email: "rchen@email.com", expedientes: 1, estado: "inactivo" },
     { nombre: "Lucía Fernández Castro", pasaporte: "PA3928471", pais: "Panamá", email: "lfernandez@email.com", expedientes: 1, estado: "activo" },
-    { nombre: "James William Scott", pasaporte: "US7481923", pais: "EEUU", email: "jwscott@email.com", expedientes: 2, estado: "activo" },
+    { nombre: "James William Scott", pasaporte: "C74819234", pais: "EEUU", email: "jwscott@email.com", expedientes: 2, estado: "activo" },
   ];
   return (
     <div className="space-y-4">
