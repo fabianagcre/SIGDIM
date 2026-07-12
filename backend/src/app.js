@@ -4,6 +4,7 @@ import { env } from "./config/env.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
 import { representacionesRouter } from "./modules/representaciones/representaciones.routes.js";
 import { usuariosRouter } from "./modules/usuarios/usuarios.routes.js";
+import { expedientesRouter } from "./modules/expedientes/expedientes.routes.js";
 
 export const app = express();
 
@@ -17,6 +18,7 @@ app.get("/api/health", (_req, res) => {
 app.use("/api/auth", authRouter);
 app.use("/api/representaciones", representacionesRouter);
 app.use("/api/usuarios", usuariosRouter);
+app.use("/api/expedientes", expedientesRouter);
 
 app.use((_req, res) => res.status(404).json({ message: "Ruta no encontrada" }));
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
@@ -41,7 +41,7 @@ interface Expediente {
 
 type EstadoKey = "activo" | "pendiente" | "aprobado" | "rechazado" | "revision" | "borrador" | "doc_faltantes";
 
-const EXPEDIENTES: Expediente[] = [
+const EXPEDIENTES_INICIAL: Expediente[] = [
   { id: "1", numero: "EXP-2024-0451", cliente: "María González Herrera", pasaporte: "PA1847293", tipo: "Residencia Permanente", estado: "activo", fecha: "2024-01-15", vencimiento: "2024-07-15", responsable: "Lcda. Soto", prioridad: "alta" },
   { id: "2", numero: "EXP-2024-0389", cliente: "Carlos Martínez Lima", pasaporte: "PE0934821", tipo: "Visa de Trabajo", estado: "pendiente", fecha: "2024-01-10", vencimiento: "2024-04-10", responsable: "Lcdo. Ramos", prioridad: "alta" },
   { id: "3", numero: "EXP-2024-0312", cliente: "Ana Rodríguez Pinto", pasaporte: "PA2841937", tipo: "Naturalización", estado: "revision", fecha: "2023-11-20", vencimiento: "2024-05-20", responsable: "Lcda. Soto", prioridad: "media" },
@@ -78,6 +78,18 @@ const estadoConfig: Record<EstadoKey, { label: string; color: string; bg: string
   borrador:     { label: "Borrador",          color: "#9AAAC2", bg: "#F0F3F8", icon: FileText },
   doc_faltantes:{ label: "Docs. Faltantes",   color: "#C0392B", bg: "#FFF0E6", icon: Paperclip },
 };
+
+// Espejo del enum EstadoExpediente de Prisma (backend/prisma/schema.prisma)
+const ESTADO_KEY_A_PRISMA: Record<EstadoKey, string> = {
+  activo: "EN_VALIDACION",
+  pendiente: "PENDIENTE",
+  aprobado: "APROBADO",
+  rechazado: "RECHAZADO",
+  revision: "EN_REVISION",
+  borrador: "BORRADOR",
+  doc_faltantes: "DOCUMENTOS_FALTANTES",
+};
+type DocumentoAPI = { id: string; tipo: string; nombreOriginal: string; mimeType: string; tamano: number; createdAt: string };
 
 const prioridadConfig = {
   alta:  { label: "Alta",  color: "#C0392B" },
@@ -508,7 +520,7 @@ function SidebarAbogado({ view, setView, onLogout }: { view: AbogadoView; setVie
 
 // ─── ABOGADO VIEWS ─────────────────────────────────────────────────────────
 
-function Dashboard() {
+function Dashboard({ expedientes }: { expedientes: Expediente[] }) {
   const metrics = [
     { label: "Expedientes Activos", value: "124", change: "+8 este mes",        icon: FileText,      color: "#1A3A6C", bg: "#E4EAF4" },
     { label: "Aprobados este Mes",  value: "47",  change: "+12% vs anterior",   icon: CheckCircle,   color: "#2E7D32", bg: "#E8F5E9" },
@@ -625,7 +637,7 @@ function Dashboard() {
             <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: "#FDECEA", color: "#C0392B" }}>3 urgentes</span>
           </div>
           <div className="space-y-2.5">
-            {EXPEDIENTES.filter(e => e.estado !== "aprobado" && e.estado !== "rechazado").slice(0,5).map(e => (
+            {expedientes.filter(e => e.estado !== "aprobado" && e.estado !== "rechazado").slice(0,5).map(e => (
               <div key={e.id} className="flex items-center gap-3 p-2.5 rounded-lg" style={{ background: "#F7F9FC" }}>
                 <Calendar size={14} style={{ color: "#5A6E8C", flexShrink: 0 }} />
                 <div className="flex-1 min-w-0">
@@ -645,8 +657,92 @@ function Dashboard() {
   );
 }
 
-function ExpedienteModal({ exp, onClose }: { exp: Expediente; onClose: () => void }) {
+function ExpedienteModal({
+  exp, apiToken, onClose, onEstadoActualizado,
+}: {
+  exp: Expediente;
+  apiToken: string | null;
+  onClose: () => void;
+  onEstadoActualizado: (numero: string, nuevoEstado: EstadoKey) => void;
+}) {
   const [activeTab, setActiveTab] = useState<"info" | "docs" | "notas">("info");
+
+  const [documentos, setDocumentos] = useState<DocumentoAPI[]>([]);
+  const [docsLoading, setDocsLoading] = useState(false);
+  const [docsError, setDocsError] = useState("");
+  const [subiendo, setSubiendo] = useState(false);
+
+  const [estadoPanelOpen, setEstadoPanelOpen] = useState(false);
+  const [nuevoEstado, setNuevoEstado] = useState<EstadoKey>(exp.estado);
+  const [comentario, setComentario] = useState("");
+  const [guardandoEstado, setGuardandoEstado] = useState(false);
+  const [estadoError, setEstadoError] = useState("");
+
+  const cargarExpediente = () => {
+    if (!apiToken) {
+      setDocsError("Conecta el backend (falló la sesión automática del abogado) para ver y subir documentos.");
+      return;
+    }
+    setDocsLoading(true);
+    setDocsError("");
+    fetch(`${API_URL}/api/expedientes/${exp.numero}`, { headers: { Authorization: `Bearer ${apiToken}` } })
+      .then(async res => {
+        if (!res.ok) throw new Error(res.status === 404 ? "Este expediente no existe todavía en el backend (falta el seed)." : "No se pudo cargar el expediente.");
+        return res.json();
+      })
+      .then(data => setDocumentos(data.documentos ?? []))
+      .catch((err: Error) => setDocsError(err.message))
+      .finally(() => setDocsLoading(false));
+  };
+
+  useEffect(() => {
+    cargarExpediente();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exp.numero, apiToken]);
+
+  const handleFileSelected = async (file: File) => {
+    if (!apiToken) return;
+    setSubiendo(true);
+    setDocsError("");
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`${API_URL}/api/expedientes/${exp.numero}/documentos`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiToken}` },
+        body: formData,
+      });
+      if (!res.ok) throw new Error("No se pudo subir el documento.");
+      const documento: DocumentoAPI = await res.json();
+      setDocumentos(prev => [documento, ...prev]);
+    } catch (err) {
+      setDocsError((err as Error).message);
+    } finally {
+      setSubiendo(false);
+    }
+  };
+
+  const guardarEstado = async () => {
+    if (!apiToken) return;
+    setGuardandoEstado(true);
+    setEstadoError("");
+    try {
+      const res = await fetch(`${API_URL}/api/expedientes/${exp.numero}/estado`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiToken}` },
+        body: JSON.stringify({ estado: ESTADO_KEY_A_PRISMA[nuevoEstado], comentario: comentario.trim() || undefined }),
+      });
+      if (!res.ok) throw new Error("No se pudo actualizar el estado.");
+      onEstadoActualizado(exp.numero, nuevoEstado);
+      setEstadoPanelOpen(false);
+      setComentario("");
+    } catch (err) {
+      setEstadoError((err as Error).message);
+    } finally {
+      setGuardandoEstado(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(15,31,61,0.5)", backdropFilter: "blur(4px)" }} onClick={onClose}>
       <div className="w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl bg-white" onClick={e => e.stopPropagation()}>
@@ -700,24 +796,31 @@ function ExpedienteModal({ exp, onClose }: { exp: Expediente; onClose: () => voi
           )}
           {activeTab === "docs" && (
             <div className="space-y-2">
-              {[
-                { nombre: "Cédula de identidad", estado: "Verificado", fecha: "12 Ene 2024" },
-                { nombre: "Pasaporte vigente", estado: "Verificado", fecha: "12 Ene 2024" },
-                { nombre: "Antecedentes penales", estado: "Pendiente", fecha: "—" },
-                { nombre: "Carta de trabajo o ingresos", estado: "Verificado", fecha: "15 Ene 2024" },
-                { nombre: "Fotos tamaño carnet", estado: "Pendiente", fecha: "—" },
-              ].map(d => (
-                <div key={d.nombre} className="flex items-center justify-between p-3 rounded-xl" style={{ background: "#F7F9FC" }}>
-                  <div className="flex items-center gap-3"><Paperclip size={14} style={{ color: "#5A6E8C" }} /><span className="text-sm font-medium" style={{ color: "#0F1F3D" }}>{d.nombre}</span></div>
+              {docsError && (
+                <div className="p-3 rounded-xl flex items-start gap-2" style={{ background: "#FDECEA", border: "1px solid rgba(192,57,43,0.2)" }}>
+                  <AlertCircle size={15} style={{ color: "#C0392B", flexShrink: 0, marginTop: 1 }} />
+                  <p className="text-xs" style={{ color: "#C0392B" }}>{docsError}</p>
+                </div>
+              )}
+              {docsLoading && <p className="text-sm text-center py-4" style={{ color: "#9AAAC2" }}>Cargando documentos…</p>}
+              {!docsLoading && !docsError && documentos.length === 0 && (
+                <p className="text-sm text-center py-4" style={{ color: "#9AAAC2" }}>Todavía no se han subido documentos.</p>
+              )}
+              {documentos.map(d => (
+                <div key={d.id} className="flex items-center justify-between p-3 rounded-xl" style={{ background: "#F7F9FC" }}>
+                  <div className="flex items-center gap-3"><Paperclip size={14} style={{ color: "#5A6E8C" }} /><span className="text-sm font-medium" style={{ color: "#0F1F3D" }}>{d.nombreOriginal}</span></div>
                   <div className="flex items-center gap-3">
-                    <span className="text-xs" style={{ color: "#9AAAC2" }}>{d.fecha}</span>
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ color: d.estado === "Verificado" ? "#2E7D32" : "#B7791F", background: d.estado === "Verificado" ? "#E8F5E9" : "#FEF3C7" }}>{d.estado}</span>
+                    <span className="text-xs" style={{ color: "#9AAAC2" }}>{new Date(d.createdAt).toLocaleDateString("es-PA")}</span>
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ color: "#2E7D32", background: "#E8F5E9" }}>{d.tipo}</span>
                   </div>
                 </div>
               ))}
-              <button className="w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 mt-2 border-2 border-dashed" style={{ color: "#1A3A6C", borderColor: "#D0D9EA" }}>
-                <Upload size={15} />Subir documento
-              </button>
+              <label className="w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 mt-2 border-2 border-dashed cursor-pointer"
+                style={{ color: apiToken ? "#1A3A6C" : "#9AAAC2", borderColor: "#D0D9EA", opacity: subiendo ? 0.6 : 1 }}>
+                {subiendo ? <><RefreshCw size={15} className="animate-spin" />Subiendo…</> : <><Upload size={15} />Subir documento</>}
+                <input type="file" className="hidden" disabled={!apiToken || subiendo}
+                  onChange={e => { const file = e.target.files?.[0]; if (file) handleFileSelected(file); e.target.value = ""; }} />
+              </label>
             </div>
           )}
           {activeTab === "notas" && (
@@ -742,11 +845,35 @@ function ExpedienteModal({ exp, onClose }: { exp: Expediente; onClose: () => voi
             </div>
           )}
         </div>
+        {estadoPanelOpen && (
+          <div className="px-5 pt-3 pb-1 space-y-2" style={{ borderTop: "1px solid rgba(26,58,108,0.08)", background: "#F7F9FC" }}>
+            {estadoError && <p className="text-xs" style={{ color: "#C0392B" }}>{estadoError}</p>}
+            {!apiToken && <p className="text-xs" style={{ color: "#C0392B" }}>Conecta el backend para poder actualizar el estado.</p>}
+            <div className="flex gap-2">
+              <select value={nuevoEstado} onChange={e => setNuevoEstado(e.target.value as EstadoKey)}
+                className="flex-1 px-3 py-2 rounded-lg text-sm border outline-none" style={{ border: "1.5px solid #D0D9EA", color: "#0F1F3D" }}>
+                {(Object.keys(estadoConfig) as EstadoKey[]).map(k => (
+                  <option key={k} value={k}>{estadoConfig[k].label}</option>
+                ))}
+              </select>
+            </div>
+            <input value={comentario} onChange={e => setComentario(e.target.value)} placeholder="Comentario (opcional)"
+              className="w-full px-3 py-2 rounded-lg text-sm border outline-none" style={{ border: "1.5px solid #D0D9EA", color: "#0F1F3D" }} />
+            <div className="flex gap-2 justify-end pb-2">
+              <button onClick={() => setEstadoPanelOpen(false)} className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ color: "#5A6E8C" }}>Cancelar</button>
+              <button onClick={guardarEstado} disabled={!apiToken || guardandoEstado}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold text-white flex items-center gap-1.5"
+                style={{ background: !apiToken || guardandoEstado ? "#9AAAC2" : "#1A3A6C" }}>
+                {guardandoEstado ? <><RefreshCw size={12} className="animate-spin" />Guardando…</> : "Guardar estado"}
+              </button>
+            </div>
+          </div>
+        )}
         <div className="flex items-center justify-between p-5 pt-3" style={{ borderTop: "1px solid rgba(26,58,108,0.08)" }}>
           <button onClick={() => descargarExpedientePdf(exp)} className="flex items-center gap-1.5 text-sm font-medium" style={{ color: "#C0392B" }}><Download size={14} />Descargar expediente</button>
           <div className="flex gap-2">
             <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-semibold" style={{ background: "#F0F3F8", color: "#5A6E8C" }}>Cerrar</button>
-            <button className="px-4 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: "#1A3A6C" }}>Actualizar estado</button>
+            <button onClick={() => setEstadoPanelOpen(v => !v)} className="px-4 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: "#1A3A6C" }}>Actualizar estado</button>
           </div>
         </div>
       </div>
@@ -754,10 +881,10 @@ function ExpedienteModal({ exp, onClose }: { exp: Expediente; onClose: () => voi
   );
 }
 
-function ExpedientesView({ onSelect }: { onSelect: (e: Expediente) => void }) {
+function ExpedientesView({ expedientes, onSelect }: { expedientes: Expediente[]; onSelect: (e: Expediente) => void }) {
   const [search, setSearch] = useState("");
   const [filtroEstado, setFiltroEstado] = useState("todos");
-  const filtered = EXPEDIENTES.filter(e => {
+  const filtered = expedientes.filter(e => {
     const ms = e.cliente.toLowerCase().includes(search.toLowerCase()) || e.numero.toLowerCase().includes(search.toLowerCase());
     const me = filtroEstado === "todos" || e.estado === filtroEstado;
     return ms && me;
@@ -837,7 +964,7 @@ function ExpedientesView({ onSelect }: { onSelect: (e: Expediente) => void }) {
           </table>
         </div>
         <div className="flex items-center justify-between px-4 py-3" style={{ borderTop: "1px solid rgba(26,58,108,0.06)", background: "#F7F9FC" }}>
-          <span className="text-xs" style={{ color: "#9AAAC2" }}>Mostrando {filtered.length} de {EXPEDIENTES.length} expedientes</span>
+          <span className="text-xs" style={{ color: "#9AAAC2" }}>Mostrando {filtered.length} de {expedientes.length} expedientes</span>
           <div className="flex gap-1">
             {[1,2,3].map(p => <button key={p} className="w-7 h-7 rounded-lg text-xs font-semibold" style={{ background: p===1?"#1A3A6C":"transparent", color: p===1?"white":"#9AAAC2" }}>{p}</button>)}
           </div>
@@ -920,10 +1047,17 @@ function ConfiguracionView() {
 
 // ─── ABOGADO LAYOUT ────────────────────────────────────────────────────────
 
-function AbogadoLayout({ onLogout }: { onLogout: () => void }) {
+function AbogadoLayout({ onLogout, apiToken }: { onLogout: () => void; apiToken: string | null }) {
   const [view, setView] = useState<AbogadoView>("dashboard");
-  const [modal, setModal] = useState<Expediente | null>(null);
+  const [expedientes, setExpedientes] = useState<Expediente[]>(EXPEDIENTES_INICIAL);
+  const [modalNumero, setModalNumero] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const modalExp = expedientes.find(e => e.numero === modalNumero) ?? null;
+
+  const handleEstadoActualizado = (numero: string, nuevoEstado: EstadoKey) => {
+    setExpedientes(prev => prev.map(e => e.numero === numero ? { ...e, estado: nuevoEstado } : e));
+  };
+
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: "#F0F3F8" }}>
       <div className="hidden lg:block w-56 flex-shrink-0 h-full">
@@ -959,13 +1093,20 @@ function AbogadoLayout({ onLogout }: { onLogout: () => void }) {
           </div>
         </div>
         <div className="flex-1 overflow-y-auto p-5" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-          {view === "dashboard"     && <Dashboard />}
-          {view === "expedientes"   && <ExpedientesView onSelect={setModal} />}
+          {view === "dashboard"     && <Dashboard expedientes={expedientes} />}
+          {view === "expedientes"   && <ExpedientesView expedientes={expedientes} onSelect={e => setModalNumero(e.numero)} />}
           {view === "clientes"      && <ClientesView />}
           {view === "configuracion" && <ConfiguracionView />}
         </div>
       </div>
-      {modal && <ExpedienteModal exp={modal} onClose={() => setModal(null)} />}
+      {modalExp && (
+        <ExpedienteModal
+          exp={modalExp}
+          apiToken={apiToken}
+          onClose={() => setModalNumero(null)}
+          onEstadoActualizado={handleEstadoActualizado}
+        />
+      )}
     </div>
   );
 }
@@ -2131,7 +2272,26 @@ function SolicitanteLayout({ onLogout }: { onLogout: () => void }) {
 
 export default function App() {
   const [role, setRole] = useState<AppRole>(null);
+  const [abogadoToken, setAbogadoToken] = useState<string | null>(null);
+
+  // El login del panel Abogado sigue siendo una simulacion (cualquier
+  // credencial "funciona", ver LoginScreen). Para que "Subir documentos" y
+  // "Actualizar estado" puedan persistir de verdad, se autentica en segundo
+  // plano contra el backend con la cuenta de abogado sembrada por el seed,
+  // sin cambiar el flujo visible de login.
+  useEffect(() => {
+    if (role !== "abogado" || abogadoToken) return;
+    fetch(`${API_URL}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "abogado@sigdim.gov.pa", password: "Abogado123!" }),
+    })
+      .then(res => (res.ok ? res.json() : null))
+      .then(data => { if (data) setAbogadoToken(data.accessToken); })
+      .catch(() => {});
+  }, [role, abogadoToken]);
+
   if (!role) return <LoginScreen onLogin={r => setRole(r)} />;
-  if (role === "abogado") return <AbogadoLayout onLogout={() => setRole(null)} />;
+  if (role === "abogado") return <AbogadoLayout onLogout={() => setRole(null)} apiToken={abogadoToken} />;
   return <SolicitanteLayout onLogout={() => setRole(null)} />;
 }
