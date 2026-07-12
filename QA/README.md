@@ -38,3 +38,4 @@ QA/
 
 - Los tests marcados `no-op:` confirman explícitamente que un botón decorativo no hace nada — son parte deliberada de la cobertura, no fallos.
 - Los tests marcados `BUG:` o `hallazgo:` documentan defectos o gaps reales del sistema. Están escritos para pasar hoy (afirman el comportamiento actual); si alguien corrige el defecto correspondiente, ese test empezará a fallar como señal de que el reporte de hallazgos debe actualizarse.
+- Los tests marcados `real:` confirman que una funcionalidad sí está conectada de extremo a extremo (navegación, tabs, acordeones, filtros, descarga de PDF, etc.), en contraste con los `no-op:`.
