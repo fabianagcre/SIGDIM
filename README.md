@@ -4,6 +4,7 @@
 **Semestre I, 2026**
 
 ---
+**Integrantes: Axel Cisnero, Gabriel Garcia, Fabiana González, Uriel Reyna**
 
 ## 📋 Descripción
 
