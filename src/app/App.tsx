@@ -17,6 +17,8 @@ import {
   ResponsiveContainer, PieChart, Pie, Cell
 } from "recharts";
 
+const API_URL = (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL ?? "http://localhost:3000";
+
 type AppRole = "abogado" | "solicitante" | null;
 type AbogadoView = "dashboard" | "expedientes" | "clientes" | "configuracion";
 type SolicitanteView = "inicio" | "mistramites" | "solicitar" | "oficinas" | "ayuda" | "asignarabogado" | "miabogado";
@@ -32,7 +34,7 @@ type Representacion = {
 // ─── Shared data ───────────────────────────────────────────────────────────
 
 interface Expediente {
-  id: string; numero: string; cliente: string; cedula: string;
+  id: string; numero: string; cliente: string; pasaporte: string;
   tipo: string; estado: EstadoKey; fecha: string; vencimiento: string;
   responsable: string; prioridad: "alta" | "media" | "baja";
 }
@@ -40,14 +42,14 @@ interface Expediente {
 type EstadoKey = "activo" | "pendiente" | "aprobado" | "rechazado" | "revision" | "borrador" | "doc_faltantes";
 
 const EXPEDIENTES: Expediente[] = [
-  { id: "1", numero: "EXP-2024-0451", cliente: "María González Herrera", cedula: "8-742-1923", tipo: "Residencia Permanente", estado: "activo", fecha: "2024-01-15", vencimiento: "2024-07-15", responsable: "Lcda. Soto", prioridad: "alta" },
-  { id: "2", numero: "EXP-2024-0389", cliente: "Carlos Martínez Lima", cedula: "PE-3421-B", tipo: "Visa de Trabajo", estado: "pendiente", fecha: "2024-01-10", vencimiento: "2024-04-10", responsable: "Lcdo. Ramos", prioridad: "alta" },
-  { id: "3", numero: "EXP-2024-0312", cliente: "Ana Rodríguez Pinto", cedula: "7-812-3401", tipo: "Naturalización", estado: "revision", fecha: "2023-11-20", vencimiento: "2024-05-20", responsable: "Lcda. Soto", prioridad: "media" },
-  { id: "4", numero: "EXP-2024-0288", cliente: "Roberto Chen Wei", cedula: "E-8-91234", tipo: "Visa de Inversionista", estado: "aprobado", fecha: "2023-10-05", vencimiento: "2026-10-05", responsable: "Lcdo. Pérez", prioridad: "baja" },
-  { id: "5", numero: "EXP-2024-0271", cliente: "Lucía Fernández Castro", cedula: "6-701-2819", tipo: "Residencia Provisional", estado: "rechazado", fecha: "2023-09-14", vencimiento: "2024-03-14", responsable: "Lcdo. Ramos", prioridad: "alta" },
-  { id: "6", numero: "EXP-2024-0445", cliente: "James William Scott", cedula: "P-USA-4421", tipo: "Permiso de Trabajo", estado: "activo", fecha: "2024-01-18", vencimiento: "2025-01-18", responsable: "Lcda. Morales", prioridad: "media" },
-  { id: "7", numero: "EXP-2024-0398", cliente: "Fatima Al-Hassan", cedula: "E-9-12301", tipo: "Reunificación Familiar", estado: "doc_faltantes", fecha: "2024-01-12", vencimiento: "2024-06-12", responsable: "Lcda. Morales", prioridad: "media" },
-  { id: "8", numero: "EXP-2024-0201", cliente: "Diego Vargas Méndez", cedula: "9-201-4512", tipo: "Doble Nacionalidad", estado: "aprobado", fecha: "2023-08-22", vencimiento: "2033-08-22", responsable: "Lcdo. Pérez", prioridad: "baja" },
+  { id: "1", numero: "EXP-2024-0451", cliente: "María González Herrera", pasaporte: "PA1847293", tipo: "Residencia Permanente", estado: "activo", fecha: "2024-01-15", vencimiento: "2024-07-15", responsable: "Lcda. Soto", prioridad: "alta" },
+  { id: "2", numero: "EXP-2024-0389", cliente: "Carlos Martínez Lima", pasaporte: "PE0934821", tipo: "Visa de Trabajo", estado: "pendiente", fecha: "2024-01-10", vencimiento: "2024-04-10", responsable: "Lcdo. Ramos", prioridad: "alta" },
+  { id: "3", numero: "EXP-2024-0312", cliente: "Ana Rodríguez Pinto", pasaporte: "PA2841937", tipo: "Naturalización", estado: "revision", fecha: "2023-11-20", vencimiento: "2024-05-20", responsable: "Lcda. Soto", prioridad: "media" },
+  { id: "4", numero: "EXP-2024-0288", cliente: "Roberto Chen Wei", pasaporte: "CN5723841", tipo: "Visa de Inversionista", estado: "aprobado", fecha: "2023-10-05", vencimiento: "2026-10-05", responsable: "Lcdo. Pérez", prioridad: "baja" },
+  { id: "5", numero: "EXP-2024-0271", cliente: "Lucía Fernández Castro", pasaporte: "PA3928471", tipo: "Residencia Provisional", estado: "rechazado", fecha: "2023-09-14", vencimiento: "2024-03-14", responsable: "Lcdo. Ramos", prioridad: "alta" },
+  { id: "6", numero: "EXP-2024-0445", cliente: "James William Scott", pasaporte: "US7481923", tipo: "Permiso de Trabajo", estado: "activo", fecha: "2024-01-18", vencimiento: "2025-01-18", responsable: "Lcda. Morales", prioridad: "media" },
+  { id: "7", numero: "EXP-2024-0398", cliente: "Fatima Al-Hassan", pasaporte: "SY2847193", tipo: "Reunificación Familiar", estado: "doc_faltantes", fecha: "2024-01-12", vencimiento: "2024-06-12", responsable: "Lcda. Morales", prioridad: "media" },
+  { id: "8", numero: "EXP-2024-0201", cliente: "Diego Vargas Méndez", pasaporte: "PA9182734", tipo: "Doble Nacionalidad", estado: "aprobado", fecha: "2023-08-22", vencimiento: "2033-08-22", responsable: "Lcdo. Pérez", prioridad: "baja" },
 ];
 
 const METRICAS_MENSUALES = [
@@ -137,7 +139,7 @@ async function descargarExpedientePdf(exp: Expediente) {
   autoTable(pdf, {
     startY: 62,
     head: [["Datos del cliente", "Información"]],
-    body: [["Nombre", exp.cliente], ["Pasaporte", exp.cedula], ["Abogado asignado", exp.responsable]],
+    body: [["Nombre", exp.cliente], ["Pasaporte", exp.pasaporte], ["Abogado asignado", exp.responsable]],
     headStyles: { fillColor: [26, 58, 108] },
   });
   const detailsY = (pdf as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
@@ -163,8 +165,135 @@ async function descargarExpedientePdf(exp: Expediente) {
 
 // ─── LOGIN ─────────────────────────────────────────────────────────────────
 
+function RegistroSolicitante({ onRegistrado, onCancelar }: { onRegistrado: () => void; onCancelar: () => void }) {
+  const [nombre, setNombre] = useState("");
+  const [pasaporte, setPasaporte] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmar, setConfirmar] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    if (password !== confirmar) {
+      setError("Las contraseñas no coinciden.");
+      return;
+    }
+    if (password.length < 8) {
+      setError("La contraseña debe tener al menos 8 caracteres.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre, pasaporte, email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.message ?? "No se pudo crear la cuenta.");
+        return;
+      }
+      onRegistrado();
+    } catch {
+      setError("No se pudo conectar con el servidor. Intenta de nuevo.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const inputStyle = {
+    border: "1.5px solid #D0D9EA", background: "#F7F9FC", color: "#0F1F3D", fontFamily: "inherit",
+  };
+
+  return (
+    <div className="w-full max-w-[420px]">
+      <div className="lg:hidden mb-8"><SystemLogo size="md" /></div>
+      <div className="mb-6">
+        <h2 className="font-extrabold text-2xl mb-1" style={{ color: "#0F1F3D" }}>Crear cuenta</h2>
+        <p className="text-sm" style={{ color: "#5A6E8C" }}>Regístrate como solicitante para dar seguimiento a tus trámites</p>
+      </div>
+
+      {error && (
+        <div className="mb-4 p-3 rounded-lg flex items-start gap-2" style={{ background: "#FDECEA", border: "1px solid rgba(192,57,43,0.2)" }}>
+          <AlertCircle size={15} style={{ color: "#C0392B", flexShrink: 0, marginTop: 1 }} />
+          <p className="text-xs" style={{ color: "#C0392B" }}>{error}</p>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <div>
+          <label className="block text-sm font-semibold mb-1.5" style={{ color: "#0F1F3D" }}>Nombre completo</label>
+          <div className="relative">
+            <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "#9AAAC2" }} />
+            <input type="text" required value={nombre} onChange={e => setNombre(e.target.value)}
+              placeholder="Ej. María González"
+              className="w-full pl-9 pr-4 py-2.5 rounded-lg text-sm border outline-none" style={inputStyle} />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold mb-1.5" style={{ color: "#0F1F3D" }}>Número de pasaporte</label>
+          <div className="relative">
+            <Shield size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "#9AAAC2" }} />
+            <input type="text" required value={pasaporte} onChange={e => setPasaporte(e.target.value)}
+              placeholder="Ej. PA1234567"
+              className="w-full pl-9 pr-4 py-2.5 rounded-lg text-sm border outline-none" style={inputStyle} />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold mb-1.5" style={{ color: "#0F1F3D" }}>Correo electrónico</label>
+          <div className="relative">
+            <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "#9AAAC2" }} />
+            <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
+              placeholder="correo@email.com"
+              className="w-full pl-9 pr-4 py-2.5 rounded-lg text-sm border outline-none" style={inputStyle} />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold mb-1.5" style={{ color: "#0F1F3D" }}>Contraseña</label>
+          <div className="relative">
+            <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "#9AAAC2" }} />
+            <input type="password" required value={password} onChange={e => setPassword(e.target.value)}
+              placeholder="Mínimo 8 caracteres"
+              className="w-full pl-9 pr-4 py-2.5 rounded-lg text-sm border outline-none" style={inputStyle} />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold mb-1.5" style={{ color: "#0F1F3D" }}>Confirmar contraseña</label>
+          <div className="relative">
+            <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "#9AAAC2" }} />
+            <input type="password" required value={confirmar} onChange={e => setConfirmar(e.target.value)}
+              placeholder="••••••••"
+              className="w-full pl-9 pr-4 py-2.5 rounded-lg text-sm border outline-none" style={inputStyle} />
+          </div>
+        </div>
+
+        <button type="submit" disabled={loading}
+          className="w-full py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all mt-1"
+          style={{ background: loading ? "#9AAAC2" : "#1A3A6C", color: "white" }}>
+          {loading ? <><RefreshCw size={15} className="animate-spin" />Creando cuenta...</> : <>Crear cuenta <ArrowRight size={15} /></>}
+        </button>
+
+        <p className="text-center text-xs" style={{ color: "#9AAAC2" }}>
+          ¿Ya tienes cuenta? <span className="font-semibold cursor-pointer" style={{ color: "#1A3A6C" }} onClick={onCancelar}>Inicia sesión</span>
+        </p>
+      </form>
+    </div>
+  );
+}
+
 function LoginScreen({ onLogin }: { onLogin: (role: AppRole) => void }) {
   const [role, setRole] = useState<"abogado" | "solicitante">("abogado");
+  const [modo, setModo] = useState<"login" | "registro">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -218,6 +347,9 @@ function LoginScreen({ onLogin }: { onLogin: (role: AppRole) => void }) {
 
       {/* Right form panel */}
       <div className="flex-1 flex items-center justify-center p-6 bg-white">
+        {modo === "registro" ? (
+          <RegistroSolicitante onRegistrado={() => onLogin("solicitante")} onCancelar={() => setModo("login")} />
+        ) : (
         <div className="w-full max-w-[420px]">
           <div className="lg:hidden mb-8"><SystemLogo size="md" /></div>
 
@@ -296,7 +428,7 @@ function LoginScreen({ onLogin }: { onLogin: (role: AppRole) => void }) {
 
             {role === "solicitante" && (
               <p className="text-center text-xs" style={{ color: "#9AAAC2" }}>
-                ¿Primera vez? <span className="font-semibold cursor-pointer" style={{ color: "#1A3A6C" }}>Crear cuenta como solicitante</span>
+                ¿Primera vez? <span className="font-semibold cursor-pointer" style={{ color: "#1A3A6C" }} onClick={() => setModo("registro")}>Crear cuenta como solicitante</span>
               </p>
             )}
           </form>
@@ -307,6 +439,7 @@ function LoginScreen({ onLogin }: { onLogin: (role: AppRole) => void }) {
           </div>
           <p className="text-center text-xs mt-5" style={{ color: "#C0CAD8" }}>© 2026 SIGDIM · v1.0 · <span className="cursor-pointer" style={{ color: "#1A3A6C" }}>Soporte</span></p>
         </div>
+        )}
       </div>
     </div>
   );
@@ -531,7 +664,7 @@ function ExpedienteModal({ exp, onClose }: { exp: Expediente; onClose: () => voi
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { label: "Cédula / Pasaporte", value: exp.cedula },
+                  { label: "Pasaporte", value: exp.pasaporte },
                   { label: "Responsable", value: exp.responsable },
                   { label: "Fecha de Apertura", value: exp.fecha },
                   { label: "Fecha de Vencimiento", value: exp.vencimiento },
@@ -670,7 +803,7 @@ function ExpedientesView({ onSelect }: { onSelect: (e: Expediente) => void }) {
                       </div>
                       <div>
                         <div className="text-sm font-semibold" style={{ color: "#0F1F3D" }}>{e.cliente}</div>
-                        <div className="text-xs" style={{ color: "#9AAAC2" }}>{e.cedula}</div>
+                        <div className="text-xs" style={{ color: "#9AAAC2" }}>{e.pasaporte}</div>
                       </div>
                     </div>
                   </td>
@@ -703,12 +836,12 @@ function ExpedientesView({ onSelect }: { onSelect: (e: Expediente) => void }) {
 
 function ClientesView() {
   const clientes = [
-    { nombre: "María González Herrera", cedula: "8-742-1923", pais: "Panamá", email: "mgonzalez@email.com", expedientes: 2, estado: "activo" },
-    { nombre: "Carlos Martínez Lima", cedula: "PE-3421-B", pais: "Perú", email: "cmartinez@email.com", expedientes: 1, estado: "activo" },
-    { nombre: "Ana Rodríguez Pinto", cedula: "7-812-3401", pais: "Panamá", email: "arodriguez@email.com", expedientes: 3, estado: "activo" },
-    { nombre: "Roberto Chen Wei", cedula: "E-8-91234", pais: "China", email: "rchen@email.com", expedientes: 1, estado: "inactivo" },
-    { nombre: "Lucía Fernández Castro", cedula: "6-701-2819", pais: "Panamá", email: "lfernandez@email.com", expedientes: 1, estado: "activo" },
-    { nombre: "James William Scott", cedula: "P-USA-4421", pais: "EEUU", email: "jwscott@email.com", expedientes: 2, estado: "activo" },
+    { nombre: "María González Herrera", pasaporte: "PA1847293", pais: "Panamá", email: "mgonzalez@email.com", expedientes: 2, estado: "activo" },
+    { nombre: "Carlos Martínez Lima", pasaporte: "PE0934821", pais: "Perú", email: "cmartinez@email.com", expedientes: 1, estado: "activo" },
+    { nombre: "Ana Rodríguez Pinto", pasaporte: "PA2841937", pais: "Panamá", email: "arodriguez@email.com", expedientes: 3, estado: "activo" },
+    { nombre: "Roberto Chen Wei", pasaporte: "CN5723841", pais: "China", email: "rchen@email.com", expedientes: 1, estado: "inactivo" },
+    { nombre: "Lucía Fernández Castro", pasaporte: "PA3928471", pais: "Panamá", email: "lfernandez@email.com", expedientes: 1, estado: "activo" },
+    { nombre: "James William Scott", pasaporte: "US7481923", pais: "EEUU", email: "jwscott@email.com", expedientes: 2, estado: "activo" },
   ];
   return (
     <div className="space-y-4">
@@ -721,7 +854,7 @@ function ClientesView() {
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {clientes.map(c => (
-          <div key={c.cedula} className="rounded-xl p-5 bg-card border cursor-pointer transition-all" style={{ borderColor: "rgba(26,58,108,0.08)" }}
+          <div key={c.pasaporte} className="rounded-xl p-5 bg-card border cursor-pointer transition-all" style={{ borderColor: "rgba(26,58,108,0.08)" }}
             onMouseEnter={e => (e.currentTarget.style.borderColor="#1A3A6C")} onMouseLeave={e => (e.currentTarget.style.borderColor="rgba(26,58,108,0.08)")}>
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-3">
@@ -730,7 +863,7 @@ function ClientesView() {
                 </div>
                 <div>
                   <div className="font-semibold text-sm" style={{ color: "#0F1F3D" }}>{c.nombre}</div>
-                  <div className="text-xs" style={{ color: "#9AAAC2" }}>{c.cedula}</div>
+                  <div className="text-xs" style={{ color: "#9AAAC2" }}>{c.pasaporte}</div>
                 </div>
               </div>
               <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: c.estado==="activo"?"#E8F5E9":"#F0F3F8", color: c.estado==="activo"?"#2E7D32":"#9AAAC2" }}>

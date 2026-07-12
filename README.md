@@ -23,10 +23,10 @@ guidelines/ Lineamientos de diseño de la interfaz
 
 ### ✅ Interfaz web (`src/`)
 - React 18 + Vite + TypeScript, Tailwind v4 y componentes Radix/shadcn.
-- Prototipo funcional con **datos de prueba (mock)**, aún sin conectar a la API del backend.
+- Prototipo funcional con **datos de prueba (mock)** en casi toda la app (login incluido); la excepción es el **registro de Solicitante**, que sí llama al backend real.
 - Dos roles con sus propias pantallas:
-  - **Abogado**: Dashboard, Expedientes (con modal de detalle y exportación a PDF vía jsPDF), Clientes, Configuración.
-  - **Solicitante**: Inicio, Mis Trámites, Solicitar Trámite, Oficinas SNM, Centro de Ayuda, **Asignar Abogado** y **Mi Abogado** (representación legal).
+  - **Abogado**: Dashboard, Expedientes (con modal de detalle y exportación a PDF vía jsPDF; el identificador de cada cliente es su **pasaporte**, no cédula), Clientes, Configuración.
+  - **Solicitante**: Inicio, Mis Trámites, Solicitar Trámite, Oficinas SNM, Centro de Ayuda, **Asignar Abogado** y **Mi Abogado** (representación legal), y **Crear cuenta** (registro real).
 
 ### ✅ Backend (`backend/`)
 - Express 5 + Prisma + PostgreSQL (ESM).
@@ -36,12 +36,13 @@ guidelines/ Lineamientos de diseño de la interfaz
 - Seed de usuarios de prueba (`backend/prisma/seed.js`, uno por rol, dos abogados con licencia).
 
 ### ✅ QA (`QA/`)
-- Suite de pruebas end-to-end con Playwright contra la interfaz: `auth`, `navigation`, `dashboard`, `expedientes`, `expediente-modal`, `representacion`.
+- Suite de pruebas end-to-end con Playwright contra la interfaz: `auth`, `navigation`, `dashboard`, `expedientes`, `expediente-modal`, `representacion`, `registro`.
+- `registro.spec.ts` es la única suite que depende del **backend real corriendo contra Postgres** (llama a `/api/auth/register`); el resto solo necesita la interfaz.
 
 ### ⏳ Pendiente / próxima entrega
 - RBAC aplicado a más endpoints (el middleware `authorize(...roles)` ya existe y se usa en auth/representaciones, falta usarlo en las rutas CRUD que vengan).
 - Endpoints CRUD de expedientes y documentos.
-- Conectar la interfaz a la API real (hoy consume solo datos mock; el login del frontend no llama todavía a `/api/auth/login`, y las pantallas de Asignar/Revocar Abogado usan un directorio de abogados mock en el propio frontend, no el endpoint `GET /api/usuarios/abogados/buscar`).
+- Conectar el resto de la interfaz a la API real (login, Dashboard, Expedientes, Clientes siguen en mock; las pantallas de Asignar/Revocar Abogado usan un directorio de abogados mock en el propio frontend, no el endpoint `GET /api/usuarios/abogados/buscar`).
 - Análisis de SonarQube: el servidor está levantado pero falta crear el proyecto y correr el scanner (detalle en [`docs/entrega-parcial2-qa-sonarqube.md`](docs/entrega-parcial2-qa-sonarqube.md)).
 
 ---
@@ -90,11 +91,14 @@ Requiere la interfaz corriendo en `http://localhost:5173` para que los specs de 
 `POST /api/auth/login` recibe `{ email, password }` y devuelve un `accessToken` (JWT, 15 min) y un `refreshToken` (JWT, 7 días). El refresh token se guarda hasheado (SHA-256) en la tabla `RefreshToken` para poder revocarlo.
 
 ```bash
+POST /api/auth/register     { nombre, email, password, pasaporte } → crea un Usuario SOLICITANTE, responde igual que login
 POST /api/auth/login        { "email": "...", "password": "..." } → { accessToken, refreshToken, usuario }
 POST /api/auth/refresh      { "refreshToken": "..." }             → rota el refresh token, devuelve un par nuevo
 POST /api/auth/logout       { "refreshToken": "..." }             → revoca el refresh token
 GET  /api/auth/me           Header: Authorization: Bearer <accessToken> → datos del usuario autenticado
 ```
+
+`/api/auth/register` solo crea cuentas con rol `SOLICITANTE` (auto-registro público); los demás roles se siembran o se crean por un administrador. Rechaza con `409` si el email o el pasaporte ya existen, y exige contraseña de al menos 8 caracteres. En la interfaz, el enlace "Crear cuenta como solicitante" del login abre este formulario y llama al endpoint real.
 
 Las rutas protegidas usan el middleware `authenticate` (`backend/src/middleware/auth.js`), que agrega `req.user = { id, rol }`. `authorize(...roles)` está disponible para restringir por rol cuando se agreguen los endpoints CRUD.
 

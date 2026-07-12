@@ -12,6 +12,59 @@ import {
 
 export const authRouter = Router();
 
+async function emitirTokens(usuario) {
+  const accessToken = signAccessToken(usuario);
+  const refreshToken = signRefreshToken(usuario);
+  const { exp } = verifyRefreshToken(refreshToken);
+
+  await prisma.refreshToken.create({
+    data: {
+      tokenHash: hashToken(refreshToken),
+      usuarioId: usuario.id,
+      expiresAt: new Date(exp * 1000),
+    },
+  });
+
+  return { accessToken, refreshToken };
+}
+
+const registerSchema = z.object({
+  nombre: z.string().trim().min(2),
+  email: z.string().trim().email(),
+  password: z.string().min(8),
+  pasaporte: z.string().trim().min(4),
+});
+
+authRouter.post("/register", async (req, res) => {
+  const parsed = registerSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ message: "Datos inválidos", errors: parsed.error.flatten() });
+  }
+  const { nombre, email, password, pasaporte } = parsed.data;
+
+  const existente = await prisma.usuario.findFirst({ where: { OR: [{ email }, { pasaporte }] } });
+  if (existente) {
+    return res.status(409).json({ message: "Ya existe una cuenta con ese correo o pasaporte" });
+  }
+
+  const usuario = await prisma.usuario.create({
+    data: {
+      nombre,
+      email,
+      passwordHash: await bcrypt.hash(password, 10),
+      rol: "SOLICITANTE",
+      pasaporte,
+    },
+  });
+
+  const { accessToken, refreshToken } = await emitirTokens(usuario);
+  res.status(201).json({
+    accessToken,
+    refreshToken,
+    usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol },
+  });
+});
+
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
@@ -29,18 +82,7 @@ authRouter.post("/login", async (req, res) => {
     return res.status(401).json({ message: "Credenciales inválidas" });
   }
 
-  const accessToken = signAccessToken(usuario);
-  const refreshToken = signRefreshToken(usuario);
-  const { exp } = verifyRefreshToken(refreshToken);
-
-  await prisma.refreshToken.create({
-    data: {
-      tokenHash: hashToken(refreshToken),
-      usuarioId: usuario.id,
-      expiresAt: new Date(exp * 1000),
-    },
-  });
-
+  const { accessToken, refreshToken } = await emitirTokens(usuario);
   res.json({
     accessToken,
     refreshToken,

@@ -21,7 +21,7 @@ test.describe('Modal de expediente (Abogado)', () => {
   });
 
   test('los tabs cambian el contenido visible', async ({ page }) => {
-    await expect(page.getByText('Cédula / Pasaporte')).toBeVisible();
+    await expect(page.getByText('Pasaporte', { exact: true })).toBeVisible();
 
     await page.getByRole('button', { name: 'Documentos', exact: true }).click();
     await expect(page.getByText('Antecedentes penales')).toBeVisible();

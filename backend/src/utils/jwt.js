@@ -9,7 +9,7 @@ export function signAccessToken(usuario) {
 }
 
 export function signRefreshToken(usuario) {
-  return jwt.sign({ sub: usuario.id }, env.jwt.refreshSecret, {
+  return jwt.sign({ sub: usuario.id, jti: crypto.randomUUID() }, env.jwt.refreshSecret, {
     expiresIn: env.jwt.refreshExpiresIn,
   });
 }
