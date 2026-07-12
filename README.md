@@ -40,12 +40,6 @@ guidelines/ Lineamientos de diseño de la interfaz
 - Suite de pruebas end-to-end con Playwright contra la interfaz: `auth`, `navigation`, `dashboard`, `expedientes`, `expediente-modal`, `representacion`, `registro`.
 - `registro.spec.ts` y varios tests de `expediente-modal.spec.ts` dependen del **backend real corriendo contra Postgres, ya sembrado** (`npm run prisma:seed`); el resto de la suite solo necesita la interfaz.
 
-### ⏳ Pendiente / próxima entrega
-- RBAC aplicado a más endpoints (el middleware `authorize(...roles)` ya existe y se usa en auth/representaciones/expedientes).
-- Endpoints CRUD completos de expedientes (crear, listar) — hoy solo existen lectura por `numero`, subir documento y cambiar estado.
-- Conectar el resto de la interfaz a la API real: el login del Abogado sigue siendo una simulación (se autentica en segundo plano contra la cuenta demo para que el modal de expediente funcione, ver `App.tsx`), y las listas de Dashboard/Expedientes/Clientes siguen en mock; las pantallas de Asignar/Revocar Abogado usan un directorio de abogados mock en el propio frontend, no el endpoint `GET /api/usuarios/abogados/buscar`.
-- Análisis de SonarQube: el servidor está levantado pero falta crear el proyecto y correr el scanner (detalle en [`docs/entrega-parcial2-qa-sonarqube.md`](docs/entrega-parcial2-qa-sonarqube.md)).
-
 ---
 
 ## 📦 Requisitos
