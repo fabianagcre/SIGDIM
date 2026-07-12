@@ -3,11 +3,17 @@
 ## Requisitos previos
 
 - Node.js 18+
-- El backend necesita `backend/.env` con `DATABASE_URL`, `JWT_ACCESS_SECRET` y `JWT_REFRESH_SECRET` definidos (no necesita una base de datos alcanzable: ninguna ruta actual toca Prisma).
+- El backend necesita `backend/.env` con `DATABASE_URL`, `JWT_ACCESS_SECRET` y `JWT_REFRESH_SECRET` definidos, y **una base de datos PostgreSQL real alcanzable** (ya hay rutas de negocio que sí tocan Prisma: registro, representaciones, expedientes).
 - **Instalación de dependencias**: antes de correr la suite, instala las dependencias en la raíz del repo y en `backend/`, ya que los servidores se lanzan automáticamente vía `webServer`:
   ```bash
   npm install           # en la raíz
   cd backend && npm install   # en backend/
+  ```
+- **Base de datos migrada y sembrada**: antes de correr la suite hay que aplicar las migraciones y el seed, o algunos tests fallarán en silencio (el panel Abogado se autentica en segundo plano contra la cuenta sembrada `abogado@sigdim.gov.pa`; sin el seed, "Subir documentos" y "Actualizar estado" quedan deshabilitados sin ningún aviso visible):
+  ```bash
+  cd backend
+  npx prisma migrate deploy
+  npm run prisma:seed
   ```
 
 ## Instalación

@@ -18,11 +18,11 @@ test.describe('Modal de expediente (Abogado)', () => {
   });
 
   test('muestra número y tipo de trámite en el header del modal', async ({ page }) => {
-    // The Expedientes table stays mounted behind the modal backdrop, and it repeats
-    // both e.numero and e.tipo as plain text (App.tsx lines 657 & 669), so an
-    // unscoped getByText() collides with the modal's own header text (lines 503 & 507).
-    // Scope to the modal header block itself (the container div wrapping the
-    // heading, at App.tsx line 501) to disambiguate.
+    // La tabla de Expedientes sigue montada detrás del fondo del modal y repite
+    // tanto e.numero como e.tipo como texto plano (App.tsx líneas 657 y 669), por lo
+    // que un getByText() sin acotar colisiona con el propio texto del header del modal
+    // (líneas 503 y 507). Se acota al bloque del header del modal (el div contenedor
+    // que envuelve el heading, en App.tsx línea 501) para desambiguar.
     const modalHeader = page.getByRole('heading', { name: 'María González Herrera' }).locator('xpath=..');
     await expect(modalHeader.getByText('EXP-2024-0451')).toBeVisible();
     await expect(modalHeader.getByText('Residencia Permanente')).toBeVisible();
